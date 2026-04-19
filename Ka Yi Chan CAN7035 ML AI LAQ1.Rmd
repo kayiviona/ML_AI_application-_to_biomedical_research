@@ -1,0 +1,517 @@
+---
+title: "CAN7035 Machine Learning and AI Assignment LAQ1"
+author: "Ka Yi Chan"
+date: "2026-04-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+LAQ 1 (27 marks in total): 
+All the data required for this LAQ are in ‘For_LAQ1_required_data.zip’
+
+You will be asked to build a random forest model that can predict whether DLBCL samples are Activated B Cell Like (ABC) or Germinal Centre B Cell Like (GCB). You have been provided with two cohorts “DLBCL_cohort_2”, comprising expression data from 350 DLBCL samples (167 ABC, 183 GCB), and “DLBCL_Cohort_1”, comprising expression data from 798 DLBCL samples (due to its size, this cohort has been split into four .rds objects). Use Cohort 2 to train, build and refine the model, and Cohort 1 to validate the model (Q4).
+
+Submit your code and answers together as an R notebook html file (.html) with all code run and the requested output visible. Discussion of your methods and results should be given in the space between code chunks. If your chunk outputs a large amount of data (e.g. all genes in a cohort) restrict this to just a small selection of them (i.e. top 5/10 rows/columns), use the built-in data.frame functionality or rework your output into an appropriate plot. NB don’t copy paste your code and output into word. 
+
+```{r}
+# Load packages
+library(tidyverse)
+library(randomForest)
+library(pamr)
+library(glmnet)
+library(Biobase)
+library(caret)
+library(survival)
+library(survminer)
+library(survivalROC)
+library(pheatmap)
+#packages<- c("tidyverse", "randomForest", "pamr", "glmnet", "Biobase", 
+#            "caret", "survival", "survminer", "survivalROC", "pheatmap")
+
+
+## Load or install these packages
+#for ( package in packages ) {
+#    if (! suppressPackageStartupMessages(require(package, character.only = TRUE)) ) {
+#        BiocManager::install(package,update = FALSE)
+#        suppressPackageStartupMessages(require(package, character.only = TRUE))
+#    }
+#}
+
+```
+
+```{r}
+## Load the DLBCL cohort_2
+setwd('/Users/kayivionachan/Documents/CAN7035 Machine Learning AI/CAN7035 Assignment/LAQ1/DLBCL_cohort_2')
+
+cohort_2 <- readRDS("DLBCL.cohort.2.rds")
+        
+```
+
+```{r}
+# Inspect the metadata
+head(pData(cohort_2), 5)
+```
+
+```{r}
+# Check the cell of origin
+table(cohort_2$COO)
+```
+
+```{r}
+# Check the survival data
+ggsurvplot(survfit(Surv(OS_TIME, OS_IND) ~ COO, data = pData(cohort_2)),
+                             pval = TRUE,
+                             pval.method = TRUE,
+                             pval.size=4,
+                             surv.median.line	= "hv",
+                             ylab="Overall Survival")
+```
+
+The Kaplan-Meier suvival plot shows ABC subtypes has a significantly lower overall suvival rate compared to GCB subtype with p-value < 0.0001. The big difference between these 2 subtypes help the model to distinguish them more easily. 
+
+Test/Train split
+
+```{r}
+# Set seed to ensure reproducibility of random split
+set.seed(15)
+# Generate a vector to assign samples to group 1 (Train) or 2 (Test)
+train_test <- sample(
+    # The group IDs to assign
+    1:2,
+    # Set the number of draws equal to the total number of samples in the dataset
+    length(sampleNames(cohort_2)), 
+    # Allow repeated selection of IDs
+    replace = TRUE, 
+    # Set split ratio to 70% Train / 30% Test
+    prob = c(0.7, 0.3))
+```
+
+```{r}
+# Check the number of samples in each cohort
+table(train_test)
+```
+
+Subset the train_test to create a training and testing.
+Take all the values where the train_test is 1 and assign into train, and all those where the train_test is 2 and assign into test. 
+
+```{r}
+# For each patient if the random number is 1 assign to training
+train_cohort2 <- cohort_2[,train_test == 1]
+# If 2 assign to testing
+test_cohort2 <- cohort_2[,train_test == 2]
+# Store this in the cohort_2 
+cohort_2$cohort <- ifelse(train_test == 1, "Training", "Testing")
+```
+
+
+1.	Build a random forest model that can predict cell-of-origin (COO) using the training/testing cohort (70/30 training/testing split). Tune the model to select an appropriate number of trees and mtry value to produce the lowest out of bag (OOB) error. Report the error of the model in the training and testing cohort (OOB, type I, type 2 errors and a ROC curve). Discuss how well your model works on these data. (7 marks)
+
+To build a predictive model, here use Random Forest algorithum to classify the cell of original (COO) as either ABC or GCB. Random forest uses a single matrix where each row is a unique sample and each column is a feature (gene). In addition, en extra target column COO is required to acts as the label for Random Forest to map specific gene expression patterns to their corresponding cell types.
+
+```{r}
+# Create the training data frame by combining the target column COO with the feature matrix
+train_cohort2.rf <- cbind(
+    # Convert COO into a factor if it was character
+    COO = as.factor(train_cohort2$COO),
+    # Transpose the expression matrix so samples are rows and genes are columns
+    exprs(train_cohort2) %>% 
+        t() %>% as.data.frame())
+
+# View a small subset of the resulting data frame to verify structure
+train_cohort2.rf[1:5,1:5]
+```
+
+```{r}
+# Repeat the formatting process for the testing dataset
+test_cohort2.rf <- cbind(COO = as.factor(test_cohort2$COO),
+      exprs(test_cohort2) %>% t() %>% as.data.frame())
+```
+
+Build a temporary model with many trees to find where the error stabilises
+
+```{r}
+set.seed(15)
+rf_ntree <- randomForest(
+    # All gene expression columns except COO are provided as predictor variables
+    select(train_cohort2.rf, -COO),
+    # Set target COO as response variable for the model to predict
+    train_cohort2.rf$COO,
+    # Try 500 tree for tuning the model
+    ntree = 500)
+```
+
+```{r}
+# Review the tuning model, including the Out-of-Bag (OOB) error rate
+plot(rf_ntree, main = "OOB Error vs ntree")
+```
+
+Interpretation of OOB Error vs ntree plot
+The black line represents the overall OOB error for both ABC and GCB class. Red line represents error rate for ABC class and green line represents error rate for GCB class. ABC has a higher error rate than GCB throughout as shown that the red line remained above the green line. This indicates the model will find it harder to classify ABC samples and GCB samples. The overall error rate is roughly 2% and all three lines dropped sharply in the first 100 trees, then stabilised afterwards. It seems setting ntree = 200 would be reasonable because the OOB error plot shows that error stabilised by approximately 100 trees by setting ntree = 200 would ensure the model to have fully converged. 
+
+Next is to tune the mtry, which is the number of features checked at each node of the trees
+
+```{r}
+# This function will try several mtry values and report the mtry values with the lowest OOB error.
+set.seed(15)
+mtryTune <- tuneRF(select(train_cohort2.rf, -COO), 
+                   train_cohort2.rf$COO, 
+                   stepFactor = 1.5,
+                   plot = TRUE,
+                   ntreeTry = 200,
+                   trace = TRUE,
+                   improve = 0.01)
+```
+
+Interpretation of mtry plot
+Using tuneRF() with ntree = 200, three mtry values were evaluated. The value mtry = 86 produced a higher OOB error (4.2%), while both mtry = 128 and mtry = 192 achieved the lowest OOB error of 2.1%. I selected mtry = 128 as it is the more computationally efficient of the two equally performing values.
+
+Test the random forest model with pre-defined ntree = 200 and mtry = 128
+
+```{r}
+# Build the final tuned random forest model using optimised parameters
+set.seed(15)
+rf_cohort2 <- randomForest(select(train_cohort2.rf, -COO), 
+                    train_cohort2.rf$COO, 
+                    mtry = 128, 
+                    ntree = 200)
+print(rf_cohort2)
+```
+
+Interpretation of the confusion matrix
+Type 1 Error (false positive) is when the model predicts the positive class ABC incorrectly as GCB. This means the model is over-estimating instances of positives when the ground truth is negative and is known as specificity. 
+Type II Error (false negative) is when the model predicts the non-reference GCB as ABC, which means the model is under-estimating where the positives get missed out and known as sensitivity. 
+According to the confusion matrix, there are 111 actual ABC samples are correctly predicted as ABC = true positive. 
+There are 4 actual ABC samples were predicted as GCB = false negative
+There are 1 actual GCB samples were predicted as ABC = false positive
+There are 122 actual GCB samples were correctly predicted as GCB = true negative. 
+
+Type I Error is 0.81% because falsely calling positive.
+Type II Error is 3.5 % because falsely calling negative.
+This suggests that the model's sensitivity and specificity very similar.
+
+The overall OOB error rate is 2.1% meaning about 97.9% of samples were correctly classified during out of bag estimation. 
+
+Next step is validation phase where the random forest model is being tested how well it learned from the patterns.
+
+```{r}
+# Prediction. This function takes the trained model and applies to the training data
+cohort2_p1 <- predict(
+    # The trained Random Forest model object
+    rf_cohort2, 
+    # Training cohort - The feature matrix used for the predictions
+    train_cohort2.rf)
+
+# The caret packages confusion Matrix function evaluate the model's accuracy
+confusionMatrix(cohort2_p1, train_cohort2.rf$COO)
+
+# Generate the probability scores for each class instead of just the final label
+# This provides a measure of the model's confidence for each prediction
+cohort2_p1.prob <- predict(rf_cohort2, train_cohort2.rf, type = "prob")
+```
+
+As shown in the confusion matrix from predicting on the training data, it shows a perfect classification i.e. Accuracy = 1 (100%), Sensitivity = 1 (100%) and Specificity = 1 (100%). This is typical for random forest because the model has already seen the training data that reflects the model's capacity to memorise the training data. Its accuracy and performance may not be as good when working on the test data.
+
+Test the model on testing cohort
+
+```{r}
+## Prediction function to apply test data
+cohort2_p2 <- predict(
+    ## Model
+    rf_cohort2,
+    ## Testing cohort
+    test_cohort2.rf)
+## again run confusion Matrix
+confusionMatrix(cohort2_p2, test_cohort2.rf$COO)
+## Again get the probabilities.
+cohort2_p2.prob <- predict(rf_cohort2, test_cohort2.rf, type = "prob")
+```
+
+As shown in the confusion matrix from predicting on the testing data, it shows an accuracy score at 0.9911 (99.01%) The model detected 51 ABC correctly and none falsely positive (Type I Error, specificity score at 1) . It missed 1 ABC sample but the remaining was successfully identified as GCB (Type II Error, sensitivity score at 0.9808 or 98.08%). These statistics indicate that the model is not overfitting because the accuract would be much worse in test performance if it were. It performs at similar level as the training data.  
+
+Test the model - once the model has learned the training data, Receiver Operating Characteristic (ROC) curve is used to visualise the performance and tell us how good the model is at distinguishing between ABC and GCB. The Area Under the Curve (AUC) comes from ROC curve and it plots the true positive rate (sensitivity) against false positive (specificity). AUC score at 1 means a perfect model that will distinguish the subtypes 100% correct, whilst 0.5 means the model is not better than a random occurrence. 
+
+```{r}
+## Evaluate the model's performance to distinguish subtypes in training data
+rf.train_cohort2.predict.ROC <- pROC::roc(
+    # Ground truth for classification
+    train_cohort2$COO, 
+    # Predict probabilities for the GCB subtype from the training split
+   cohort2_p1.prob[,"GCB"])
+plot(
+    rf.train_cohort2.predict.ROC,
+    main = paste("AUC", round(rf.train_cohort2.predict.ROC$auc, 5))
+    )
+# Evaluate the model's true predictive power on unseen clinical samples
+rf.test_cohort2.predict.ROC <- pROC::roc(
+    # Provide the actual 30% testing data
+    test_cohort2$COO, 
+    # Predict probabilities for the GCB subtype from the testing split
+    cohort2_p2.prob[,"GCB"])
+plot(
+    rf.test_cohort2.predict.ROC,
+    main = paste("AUC", round(rf.test_cohort2.predict.ROC$auc, 5))
+    )
+```
+
+The Random Forest model achieved a perfect AUC of 1.0 on the training cohort and a near-perfect AUC of 0.99936 on the independent testing cohort. This consistency confirms that the model has successfully identified the underlying biological signatures rather than simply memorizing the training samples, indicating it is highly robust and free from significant overfitting.
+
+2.	Select the 1000 most important features in the model and use these to recreate the model – Report the error of this model in the training and testing cohort (OOB, type I, type 2 errors & ROC). Discuss whether it performs better or worse than the previous model. (6 marks)
+
+```{r}
+# Extract the top 1000 genes ranked by importance (MeanDecreaseGini)
+top1000Genes <- 
+    importance(rf_cohort2) %>% 
+    # Turn it into a data.frame
+    as.data.frame() %>% 
+    # Order the genes in descending order
+    arrange(-MeanDecreaseGini) %>%
+    # Extract the rownames in order
+    rownames() %>% 
+    # Select top 1000 genes
+    .[1:1000]
+
+# Inspect top1000Genes
+head(top1000Genes, 10)
+```
+
+Recreate the model with only these 1000 more important genes
+
+```{r}
+# Create new dataset containing these 1000 genes and the COO column
+train_cohort2_top1000Genes.rf <- select(train_cohort2.rf, c('COO', top1000Genes))
+test_cohort2_top1000Genes.rf <- select(test_cohort2.rf, c('COO', top1000Genes))
+
+# Rebuild a random forest using top 1000 genes
+set.seed(15)
+rf_cohort2_top1000 <- randomForest(select(train_cohort2_top1000Genes.rf, top1000Genes), 
+                    train_cohort2_top1000Genes.rf$COO, 
+                    mtry = 128, 
+                    ntree = 200)
+print(rf_cohort2_top1000)
+```
+
+There are 114 actual ABC samples are correctly predicted as ABC = true positive. 
+There are 1 actual ABC samples were predicted as GCB = false negative
+There are 1 actual GCB samples were predicted as ABC = false positive
+There are 122 actual GCB samples were correcly predicted as GCB = true negative. 
+
+Type I Error is 0.081% which was same as the previous model meaning specificity remained the same.
+Type II Error is 0.87% which has reduced compared to the previous model (3.5%), meaning sensitivity improved (less ABC samples missed and falsely called as GCB).
+This suggests the reduced feature set better at detecting ABC samples and maintained its ability to distinguishes GCB samples compared to the previous model.
+
+The overall OOB error rate is 0.81 which has improved compared to the previous model (2.1%). 
+
+Test the top 1000 genes model
+```{r}
+# Test prediction of the top1000 genes model on the training data
+cohort2_top1000_p1 <- predict(
+    # Top1000 genes Random Forest model object
+    rf_cohort2_top1000, 
+    # Top1000 genes training cohort 
+    train_cohort2_top1000Genes.rf)
+
+# The caret packages confusion Matrix function evaluate the model's accuracy
+confusionMatrix(cohort2_top1000_p1, train_cohort2_top1000Genes.rf$COO)
+
+# Generate the probability scores for each class instead of just the final label
+# This provides a measure of the model's confidence for each prediction
+cohort2_top1000_p1.prob <- predict(rf_cohort2_top1000, train_cohort2_top1000Genes.rf, type = "prob")
+
+```
+
+```{r}
+# Test prediction of the top1000 genes model on the testing data
+cohort2_top1000_p2 <- predict(
+    # Top1000 genes Random Forest model object
+    rf_cohort2_top1000,
+    # Top1000 genes testing cohort 
+    test_cohort2_top1000Genes.rf)
+# Confusion Matrix
+confusionMatrix(cohort2_top1000_p2, test_cohort2_top1000Genes.rf$COO)
+# Measure the model's confidence for each prediction
+cohort2_top1000_p2.prob <- predict(rf_cohort2_top1000, test_cohort2_top1000Genes.rf, type = "prob")
+```
+
+Run ROC on top 1000 gene model
+
+```{r}
+## Evaluate the model's performance to distinguish subtypes in training data
+rf.train_cohort2_top1000.predict.ROC <- pROC::roc(
+    # Ground truth for classification
+    train_cohort2_top1000Genes.rf$COO, 
+    # Predict probabilities for the GCB subtype from the training split
+    cohort2_top1000_p1.prob[,"GCB"])
+plot(
+    rf.train_cohort2_top1000.predict.ROC,
+    main = paste("AUC", round(rf.train_cohort2_top1000.predict.ROC$auc, 5))
+    )
+# Evaluate the model's true predictive power on unseen clinical samples
+rf.test_cohort2_top1000.predict.ROC <- pROC::roc(
+    # Provide the actual 30% testing data
+    test_cohort2_top1000Genes.rf$COO, 
+    # Predict probabilities for the GCB subtype from the testing split
+    cohort2_top1000_p2.prob[,"GCB"])
+plot(
+    rf.test_cohort2_top1000.predict.ROC,
+    main = paste("AUC", round(rf.test_cohort2_top1000.predict.ROC$auc, 5))
+    )
+```
+
+Both the reduced features model achieved AUC score at 0.99968 and the previous all genes model achieved AUC score at 1. It shows that by selecting the top most important features it maintains the robustness and free from significant overfitting.
+
+3.	Recursively retrain the model using the n most important features (where n is a reducing number of features) to find the optimum number of genes to include in the training. Report the error of the model in the training and testing cohort, including OOB, type I, type 2 errors & ROC. Discuss the n value chosen, explaining your strategy for gene selection and describe which of the 3 models you feel best models the data (7 marks)
+
+For Q3, a for loop is required to test a range of the most important genes e.g. 1000, 800, 600, 400, 200, 100, 50 and 10. 
+
+```{r}
+# Rank genes according to importance
+genes_ranked <-  importance(rf_cohort2) %>% 
+    as.data.frame() %>% 
+    arrange(-MeanDecreaseGini) %>%
+    rownames()
+
+# Define the number of genes to be tested
+n_genes <- c(1000, 800, 600, 400, 200, 100, 50, 10)
+
+# For loop starts here
+set.seed(15)
+for (n in n_genes) {
+  
+  top_genes_rf <- randomForest(select(train_cohort2.rf, all_of(genes_ranked[1:n])), 
+                    train_cohort2.rf$COO, 
+                    mtry = floor(sqrt(n)), 
+                    ntree = 200)
+  
+  # OOB Errors
+  oob_error <- top_genes_rf$err.rate[nrow(top_genes_rf$err.rate), "OOB"]*100
+  type1_error <- top_genes_rf$confusion["GCB", "class.error"]*100
+  type2_error <- top_genes_rf$confusion["ABC", "class.error"]*100
+  
+  # Test prediction and AUC
+  top_genes_p2 <- predict(top_genes_rf, test_cohort2.rf, type = "prob")
+  top_genes_ROC <- pROC::roc(test_cohort2$COO, top_genes_p2[, "GCB"])
+  top_genes_AUC <- as.numeric(top_genes_ROC$auc)
+
+  cat("Genes =", n,
+      "| OOB =", round(oob_error, 2), "%",
+      "| Type I Error =", round(type1_error, 2),"%",
+      "| Type II Error =", round(type2_error, 2), "%",
+     # "| Test Prediction  =", round(top_genes_p2, 2), "%",
+      "| AUC =", round(top_genes_AUC, 4), "\n")
+  
+}
+```
+
+The AUC remained almost perfect (from 1 to 0.9941) despite I dropped from 1000 genes down to 10. This suggests that the signal for distinguishing ABC from GCB is very strong in a small number of genes.
+
+When comparing the OOB, type I and type II errors, it is clear that at 200 genes have the lowest errors rates compared to other number of genes selected. At 50 genes the OOB error increased to 2.52% and at 10 genes it went up to 3.78%. The type I and II errors also began to increased sharply from 50 to 10 genes. This indicated that 50 genes or lower are not good enough to capture the biological complexity of the subtypes.
+
+Therefore, the optimal number of genes is 200 because at this threshold, the model maintains a near-perfect AUC (0.9997) and 0% Type II error rate on the test set. 
+
+When comparing the three models: full feature set, top 1000 genes subset and the optimised 200 genes subset, I believe the 200 genes model would be the most ideal representation of the data. The reasons are that: 1) the full feature model contain redundant information which may induce noise and take up too much unnecessary computational work; 2) the 1000 genes model maintained the same performance as the full features but might still contain redundant information that could still take up unnecessary computational work and 3) the 200 genes model achieved maximum accuracy with the minimum number of features, thus it is more practical for development into a diagnostic assay than using a whole transcriptome approach.
+
+4.	Using your final optimum model, predict the cell of origin in Cohort 1 (the cohort used in the practical). Report the type 1 and type 2 errors and a ROC curve in this validation cohort. Discuss whether this model works within this validation cohort and explain your reasoning. 
+
+Define the top 100 genes
+```{r}
+top200genes <- genes_ranked[1:200]
+```
+
+Rebuild the optimal model before answering Q4
+```{r}
+set.seed(15)
+optimal_model_rf <- randomForest(
+  select(train_cohort2.rf, all_of(top200genes)),
+  train_cohort2.rf$COO,
+  ntree = 200,
+  mtry = floor(sqrt(200))
+  
+)
+
+print(optimal_model_rf)
+```
+
+The confusion matrix of the optimal model shows OOB error rate at 2.1%, type I error rate at 3.25% and type II error rate at 0.87%. 
+
+Laod Cohort 1 dataset
+```{r}
+# Load Cohort 1
+setwd('/Users/kayivionachan/Documents/CAN7035 Machine Learning AI/CAN7035 Assignment/LAQ1/DLBCL_cohort_1')
+
+cohort_1 <- Biobase::combine(readRDS("DLBCL.eSet.1.rds"),
+        readRDS("DLBCL.eSet.2.rds"),
+        readRDS("DLBCL.eSet.3.rds"),
+        readRDS("DLBCL.eSet.4.rds"))
+```
+
+```{r}
+# Inspect the metadata
+head(pData(cohort_1), 5)
+```
+
+```{r}
+# Check the cell of origin
+table(cohort_1$COO)
+```
+
+Create the validation data frame for Cohort 1 and inspect its original data frame
+
+```{r}
+cohort1_rf <- cbind(
+  COO = as.factor(cohort_1$COO),
+  exprs(cohort_1) %>% 
+    t() %>% as.data.frame()
+)
+
+cohort1_rf[1:5, 1:5]
+```
+
+Filter the data to only include the 200 genes optimal model from Q3 and inspect data frame
+
+```{r}
+cohort1_rf <- cohort1_rf[, c("COO", top200genes)]
+
+cohort1_rf[1:5, 1:5]
+```
+```{r}
+# Check if Cohort 1 contains all 200 genes from the optimal model
+all(top200genes %in% colnames(cohort1_rf))
+```
+
+Testing Cohort 1 using top200genes model
+
+```{r}
+# Predict on Cohort 1
+cohort1_predict <- predict(optimal_model_rf, select(cohort1_rf, -COO))
+confusionMatrix(cohort1_predict, cohort1_rf$COO)
+```
+
+```{r}
+# Run ROC
+cohort1_p2 <- predict(optimal_model_rf, select(cohort1_rf, -COO), type = "prob")
+rf.cohort1.ROC <- pROC::roc(cohort1_rf$COO, cohort1_p2[, "GCB"])
+plot(rf.cohort1.ROC, main = paste("Cohort 1 Validation AUC", round(rf.cohort1.ROC$auc, 5)))
+```
+
+Interpretation of Cohort 1 validation using the optimal model from Q3
+The confusion matrix and statistics showed that the model performed poorly on the validation cohort, it failed to detect vast majority of ABC samples (only detected 3 ABC samples, sensitivity = 1.2%) and identified all samples as GCB (specificity = 1), hence its overall OOB error rate as 0.6842. However, the AUC score is 0.94008 suggested that the optimal model was still able to distinguish the ABC subtypes from GCB subtypes based on different gene expression patterns. The reasons why this model failed to identify ABC despite the AUC score was still relatively high, could be that the range of the expression values in both cohorts are different therefore the threshold set by random forest was not able to detect ABC samples. The difference between the two cohorts expression values could due to data have not been normalised or caused by technical batch effects from the sequencing process. 
+
+
+To check the range of expression values of two cohorts
+```{r}
+# Check expression values of cohort 2 training data
+summary(exprs(train_cohort2)[1:5,1:5])
+
+```
+
+```{r}
+# Check expression values of validation cohort 1
+summary(exprs(cohort_1)[1:5,1:5])
+```
+
+As shown in the summary table of expression values of both cohorts, it is clear that the min-max values for cohort 2 training set were between 2 - 10, whereas the min-max values for cohort 1 were between 8 - 15. This could be the reason why the model learned from cohort 2 was inappropriate for cohort 1 data. To overcome this, data normalisation before prediction would likely to improve the performance.
+
+
