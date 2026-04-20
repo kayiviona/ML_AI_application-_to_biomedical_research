@@ -1,0 +1,253 @@
+---
+title: "CAN7035 ML/AL Assignment LAQ2"
+author: "Ka Yi Chan"
+date: "2026-04-19"
+output: html_document
+---
+
+LAQ 2. (27 marks in total)
+All the data required for this LAQ are in ‘For_LAQ2_required_data.zip’
+
+File ‘exp_data_ESCC_90samples.txt’ contains gene expression profiles of 90 oesophageal squamous cell carcinoma samples.
+
+1.	Perform the unsupervised clustering analysis using non-negative matrix factorization (NMF). Find the most appropriate number of clusters, and provide all the essential statistics and plots to support your clusters. (4 marks)
+
+Load packages
+```{r}
+# Install.packages('NMF')
+library(NMF)
+
+# list all available algorithms
+nmfAlgorithm()
+
+# retrieve a specific algorithm: 'brunet'
+nmfAlgorithm('brunet')
+```
+
+Load file ‘exp_data_ESCC_90samples.txt’ contains gene expression profiles of 90 oesophageal squamous cell carcinoma samples.
+
+```{r}
+escc_data <- read.table('/Users/kayivionachan/Documents/CAN7035 Machine Learning AI/CAN7035 Assignment/For_LAQ2_required_data/exp_data_ESCC_90samples.txt', header=T, row.names=1)
+dim(escc_data)
+```
+
+Select the top 1500 most variable genes to reduce noise and focus on genes with the highest variability across samples using mean absolute deviation (MAD).
+
+```{r}
+# Feature selection using MAD (Median Absolute Deviation)
+escc_exp <- escc_data
+mads=apply(escc_exp,1,mad)
+escc_exp=escc_exp[rev(order(mads))[1:1500],]
+dim(escc_exp)
+head(escc_exp)
+```
+
+Determine optimal K using NMF rank survey – Test K = 2 to 6, running 10 iterations per rank to evaluate clustering quality. 
+
+```{r}
+# Set seed to ensure reproducibility
+escc_estim.r <- nmf(escc_exp, 2:6, nrun=10, seed=420)
+
+plot(escc_estim.r)
+consensusmap(escc_estim.r)
+```
+
+Interpretation of NMK rank survey
+Cophenetic correlation: It measures how faithfully the consensus matrix preserves pairwise distances, usually the higher is better. A sharp drop suggests over-splitting. As shown, K = 2 is the highest, however, k = 5 is also good.
+Dispersion: higher values indicate more stable/reproducible clusters. K = 2 is the most stable, then sharp drop from K = 2 to 3 then recovered at K = 5.
+Silhouette width: higher indicates tighter, better-separated clusters. K = 2 has the best separated clusters, but K = 3, 4 and 5 are also good.K = 3 seems to offer a better balance of high sihouette and high cophenentic correlation.
+Sparseness: higher sparseness means metagenes are defined by fewer genes indicates more interpretable. K = 4 and 6 have the highest values, but K. = 5 is also considered as good.
+
+Interpration of consensus map
+Consensus map measures how often the same samples appear in the same cluster across multiple different iterations of the NMF algorithm. The colour scale ranges from 0 (blue) to 1 (red). Red means two samples were clustered together in 100% of the runs. Blue means these samples were never clustered together. According to the consensus map, K = 2 has two big red blocks with no noise and K = 3 splits into three distinct blocks but one cluster looks less well-defined. K = 4 shows four reasonably distinct blocks with good separation, its silhouette range 0.99 - 0.5 indicates most samples fit well with a few borderline. K = 5 and 6 clearly show fragmented and many misassigned samples. 
+
+In summary, it seems that K = 2 achieves the highest cophenetic correlation but two clusters is too coarse to capture the molecular heterogeneity within ESCCC. I have chosen K = 4 to be the optimal number of clusters because 1), the cophenetic correlation remains high indicating stable cluster assignments; 2) dispersion shows a recovery at  = 4; 3) sparseness peaks at K = 4 meaning samples are most distinctly assigned to a single cluster and 4) silhouette drops sharply and consensus maps become fragmented beyond K = 4. 
+
+2.	Based on your selection of number of clusters, select and report the most significant gene signatures for each cluster (i.e., top 20 genes based on the differential expression of each cluster against all others). (5 marks)
+
+Perform NMF brunet using k=4, and extract features
+```{r}
+# Run NMF on escc_exp matrix using k=4 and brunet method
+escc_res <- nmf(escc_exp, 4, "brunet", seed=420) 
+escc_res
+
+# This function extracts the actual mathematical model (W and H) from the NMF result object, which also contains metadata like the algorithm used and the seed
+fit(escc_res)
+
+# This function calculates the product of W x H. In NMF, the goal is for this reconstructed matrix to be as close to the original escc_exp
+escc_V.hat <- fitted(escc_res) 
+dim(escc_V.hat)
+
+# Quality and performance measures about the factorization are computed by method summary
+summary(escc_res)
+
+# Get matrix W
+w_matrix <- basis(escc_res)
+dim(w_matrix)
+
+# Get matrix H
+h_matrix <- coef(escc_res)
+dim(h_matrix)
+```
+
+NMF reduces the complexity of 90 samples into 4 interpretable biological clusters.
+escc_V.hat = 1500 and 90, this confirms NMF successfully reconstructed a martix of the original size.
+w_matrix = 1500 and 4, this confirms it has reduced 90 dimensions (samples) down to 4 distinct clusters.
+h_matrix = 4 and 90, this confirms it catergorised each of the 90 samples based on how much they express those 4 clusters.
+
+The NMF package implements this procedure in methods featureScore and extractFeature:
+```{r}
+# Calculate the scores using the Kim-Park method
+escc_score <- featureScore(escc_res)
+summary(escc_score)
+
+# Extract NMF metagene features
+escc_features <- extractFeatures(escc_res)
+str(escc_features)
+
+# Identify which are the top genes for each cluster.
+# Finding signature genes for Cluster 1
+rownames(escc_exp)[escc_features[[1]]]
+# Finding signature genes for Cluster 2
+rownames(escc_exp)[escc_features[[2]]]
+# Finding signature genes for Cluster 3
+rownames(escc_exp)[escc_features[[3]]]
+# Finding signature genes for Cluster 4
+rownames(escc_exp)[escc_features[[4]]]
+```
+
+Extract all 4 cluster memberships of NMF clusters. 
+IN NMF, every sample has a coefficient score for each of the 4 clusters from the H matrix. The predict function finds which of these clusters has the highest score for each sample, then assign that sample to that specific cluster. 
+
+```{r}
+# Extract cluster memberships
+cluster_memberships <- predict(escc_res)
+table(cluster_memberships)
+
+```
+
+The frequency table shows there are 31 samples in cluster 1, 22 samples in cluster 2, 13 samples in cluster 3 and 24 samples in cluster 4.
+
+Use limma to find significant genes based on differential expression
+
+```{r}
+library(limma)
+
+# Create an empty list to store the results when accessing all 4 clusters
+top_20_genes_list <- list()
+
+# Create a loop to go through all 4 clusters
+for (k in 1:4) {
+
+# Define group and compare one cluster to the rest
+  # this creates a temporary label for the 90 samples i.e. the current sample is labeled as ClusterK           if not labeled as Other
+  group <- factor(ifelse(cluster_memberships == k, "ClusterK", "Other"))
+
+  # Design matrix. Only calculate the mean expression for ClusterK and Other independently
+  mod <- model.matrix(~0 + group)
+  # Rename the columns of the matrix
+  colnames(mod) <- c("ClusterK", "Other")
+  # Align correct sample names to the rows of the design matrix correctly
+  rownames(mod) <- colnames(escc_exp)
+  
+  # Fit a linear model for all 1500 genes
+  fit <- lmFit(escc_exp, mod)
+  # Contrast - Subtract the average of Other from the average of ClusterK
+  con.matrix <- makeContrasts(ClusterKvsOther = ClusterK - Other, levels = mod)
+  # Apply contrast to the linear model
+  fit2 <- contrasts.fit(fit, con.matrix)
+  fit2 <- eBayes(fit2)
+  
+  # Top 20 DE genes
+  top20 <- topTable(fit2, adjust = "BH", number = 20, sort.by = "logFC")
+  top_20_genes_list[[k]] <- top20
+  
+  cat("\n=== Top 20 DE Genes for Cluster", k, "vs all others ===\n")
+  print(top20)
+}
+```
+
+Based on the 20 most differentiated gene expression in these 4 clusters, it enables us to identify what subtypes these clusters belong to. 
+Cluster 1 indicates highly proliferative squamous cells because of upregulated COL17A1, KRT16 and KRT6B which are the markers of hyper-proliferative squamous epithelium. 
+Cluster 2 could belong to mesenchymal/stroma-rich subtype because of upregulation of Desmin (DES) which is a muscle filament protein but downregulation of squamous keratins (KRT16 and KRT6C).
+Cluster 3 is likely a healthy well-differentiated esophageal tissue because genes typically expressed in healthy cells are all upregulated.
+Cluster 4 belongs to metatbolic-like subtype because genes associated with detoxification and metabolism such as TSPAN7, UGT1A1 and ALDH1A1, and are all upregulated.  
+
+3.	Perform GSEA and report the most upregulated and downregulated pathways for each cluster, and comment on your findings. (5 marks)
+
+```{r}
+# load packages
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+library(pathview)
+library(DOSE)
+
+# Perform limma DE for all genes
+all_genes_list <- list()
+
+for (k in 1:4) {
+  group <- factor(ifelse(cluster_memberships == k, "ClusterK", "Other"))
+  
+  mod <- model.matrix(~ 0 + group)
+  colnames(mod) <- c("ClusterK", "Other")
+  rownames(mod) <- colnames(escc_exp)
+  
+  fit <- lmFit(escc_exp, mod)
+  cont.matrix <- makeContrasts(ClusterKvsOther = ClusterK - Other, levels = mod)
+  fit2 <- contrasts.fit(fit, cont.matrix)
+  fit2 <- eBayes(fit2)
+  
+  all_results <- topTable(fit2, adjust = "BH", number = Inf) # all genes rather than top 20 DE genes
+  all_genes_list <- append(all_genes_list, list(all_results))
+}
+
+# Prepare ranked gene lists from all gene list
+gene_lists <- list()
+
+for (i in 1:4) {
+  gene_list <- all_genes_list[[i]]$logFC
+  gene_list <- log2(10^gene_list)
+  names(gene_list) <- rownames(all_genes_list[[i]])
+  gene_list <- sort(gene_list, decreasing = TRUE)
+  gene_list <- list(gene_list)
+  gene_lists <- append(gene_lists, gene_list)
+}
+
+# Run GSEA 
+GSEA_res <- list()
+
+for (i in 1:4) {
+  set.seed(420)
+  gse <- gseGO(geneList = gene_lists[[i]], 
+               ont = "ALL", 
+               keyType = "SYMBOL", 
+               nPerm = 1000, 
+               minGSSize = 3, 
+               maxGSSize = 800, 
+               pvalueCutoff = 0.05, 
+               verbose = TRUE, 
+               OrgDb = "org.Hs.eg.db", 
+               pAdjustMethod = "none")
+  GSEA_res<-append(GSEA_res,gse)
+}
+
+# Dotplots 
+for (i in 1:4) {
+  plot(dotplot(GSEA_res[[i]], showCategory = 10, split = ".sign",
+               title = paste0("Cluster ", i), font.size = 6) + 
+         facet_grid(. ~ .sign))
+}
+
+```
+
+Interpretation of dotplots
+The name of the pathways are on the y-axis. The plot on the left shows pathways that are activated for the cluster and the one on the right are suppressed. The count on the right side shows the number of genes involved. The size of the bubbles on both activated and suppressed plots represent how many genes from that pathway were found in the data. The colour of p.adjust represent significance (from red to blue).  
+
+Cluster 1
+The moost activated pathways are long-chain fatty acid and transmembrane transporter activity. This suggests that tumours have increased activity in lipid transport and membrane remodeling. The increased expression in COL17A1 (structural collagen) and KRT16 (filament protein in epithelial cells) observed in Q3, suggests that these structural keratins work in tandem with membrane transporters to maintain the hyper-proliferative state of squamous cells.
+The most suppressed pathways in cluster 1 are lipid metabolic process and neuron projection and synapse. 
+
+
+
+
