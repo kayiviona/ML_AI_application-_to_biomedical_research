@@ -135,6 +135,7 @@ library(limma)
 
 # Create an empty list to store the results when accessing all 4 clusters
 top_20_genes_list <- list()
+all_genes_list <- list() 
 
 # Create a loop to go through all 4 clusters
 for (k in 1:4) {
@@ -162,16 +163,24 @@ for (k in 1:4) {
   top20 <- topTable(fit2, adjust = "BH", number = 20, sort.by = "logFC")
   top_20_genes_list[[k]] <- top20
   
+  # All DE genes for GSEA
+  all_genes <- topTable(fit2, adjust = "BH", number = Inf)
+  all_genes_list <- append(all_genes_list, list(all_genes))
+  
   cat("\n=== Top 20 DE Genes for Cluster", k, "vs all others ===\n")
   print(top20)
 }
 ```
 
-Based on the 20 most differentiated gene expression in these 4 clusters, it enables us to identify what subtypes these clusters belong to. 
-Cluster 1 indicates highly proliferative squamous cells because of upregulated COL17A1, KRT16 and KRT6B which are the markers of hyper-proliferative squamous epithelium. 
-Cluster 2 could belong to mesenchymal/stroma-rich subtype because of upregulation of Desmin (DES) which is a muscle filament protein but downregulation of squamous keratins (KRT16 and KRT6C).
-Cluster 3 is likely a healthy well-differentiated esophageal tissue because genes typically expressed in healthy cells are all upregulated.
-Cluster 4 belongs to metatbolic-like subtype because genes associated with detoxification and metabolism such as TSPAN7, UGT1A1 and ALDH1A1, and are all upregulated.  
+Based on the 20 most differentiated gene expression signatures across these four clusters, we can infer the corresponding cellular subtypes.
+
+Cluster 1 indicates a highly proliferative squamous-cell subtype, supported by the upregulation of COL17A1, KRT16, and KRT6B, which are markers of hyper-proliferative squamous epithelium. Downregulation of KRT4 indicates a significant dedifferentiation, where cells lose their mature squamous identity to favor a more proliferative state. The loss of ALDH1A1 enzyme responsible for cellular detoxifying and managing oxidative stress a metabolic shift that often seen in poorly differentiated ESCC tumors. 
+
+Cluster 2 likely belongs to a mesenchymal/stroma-rich subtype, as desmin (DES) a structural protein is upregulated, while squamous keratins (KRT16 and KRT6C) and Small Proline-Rich (SPRR) protein family (SPRR1B, SPRR2E) and C10orf99 are downregulated. This combination indicates a total loss of the epithelial barrier function in favor of a more invasive cellular architecture, often associated with metastasis in ESCC.
+
+Cluster 3 identifies well-differentiated subtype, this signature is defined by the upregulation of mucodal keratins (KRT4 and KRT13) and Small Proline-Rich Proteins (SPRR3 and SPRR2A) High expression of CLCA4 further confirms a mature cellular state.
+
+Cluster 4 belongs to a metabolic-like subtype, since genes associated with detoxification and metabolism enzymes such as ALDH3A1, ADH7, AKR1C3, CES1 and members of the Cytochrome P450 family (CYP4F11 and CYP4F3) are all upregulated.
 
 3.	Perform GSEA and report the most upregulated and downregulated pathways for each cluster, and comment on your findings. (5 marks)
 
@@ -183,35 +192,15 @@ library(enrichplot)
 library(pathview)
 library(DOSE)
 
-# Perform limma DE for all genes
-all_genes_list <- list()
-
-for (k in 1:4) {
-  group <- factor(ifelse(cluster_memberships == k, "ClusterK", "Other"))
-  
-  mod <- model.matrix(~ 0 + group)
-  colnames(mod) <- c("ClusterK", "Other")
-  rownames(mod) <- colnames(escc_exp)
-  
-  fit <- lmFit(escc_exp, mod)
-  cont.matrix <- makeContrasts(ClusterKvsOther = ClusterK - Other, levels = mod)
-  fit2 <- contrasts.fit(fit, cont.matrix)
-  fit2 <- eBayes(fit2)
-  
-  all_results <- topTable(fit2, adjust = "BH", number = Inf) # all genes rather than top 20 DE genes
-  all_genes_list <- append(all_genes_list, list(all_results))
-}
-
-# Prepare ranked gene lists from all gene list
+# Prepare ranked gene lists from Q2 limma results
 gene_lists <- list()
 
 for (i in 1:4) {
-  gene_list <- all_genes_list[[i]]$logFC
-  gene_list <- log2(10^gene_list)
-  names(gene_list) <- rownames(all_genes_list[[i]])
+  gene_list <- all_genes_list[[i]]$logFC # logFC from Q2 limma
+  gene_list <- log2(10^gene_list) # convert to log2FC
+  names(gene_list) <- rownames(all_genes_list[[i]]) # gene names from Q2 limma
   gene_list <- sort(gene_list, decreasing = TRUE)
-  gene_list <- list(gene_list)
-  gene_lists <- append(gene_lists, gene_list)
+  gene_lists[[i]] <- gene_list # stores directly into gene_lists
 }
 
 # Run GSEA 
@@ -229,7 +218,7 @@ for (i in 1:4) {
                verbose = TRUE, 
                OrgDb = "org.Hs.eg.db", 
                pAdjustMethod = "none")
-  GSEA_res<-append(GSEA_res,gse)
+  GSEA_res[[i]] <- gse 
 }
 
 # Dotplots 
@@ -242,11 +231,206 @@ for (i in 1:4) {
 ```
 
 Interpretation of dotplots
-The name of the pathways are on the y-axis. The plot on the left shows pathways that are activated for the cluster and the one on the right are suppressed. The count on the right side shows the number of genes involved. The size of the bubbles on both activated and suppressed plots represent how many genes from that pathway were found in the data. The colour of p.adjust represent significance (from red to blue).  
+The name of the pathways are on the y-axis, while the plots are divided into activated (upregulated) and suppressed (downregulated) categories for each cluster. The count and bubble size represent the number of genes from each specific pathway identified in the dataset. The color of the p.adjust bubbles represents statistical significance, ranging from red (more significant) to blue (less significant).  
 
 Cluster 1
-The moost activated pathways are long-chain fatty acid and transmembrane transporter activity. This suggests that tumours have increased activity in lipid transport and membrane remodeling. The increased expression in COL17A1 (structural collagen) and KRT16 (filament protein in epithelial cells) observed in Q3, suggests that these structural keratins work in tandem with membrane transporters to maintain the hyper-proliferative state of squamous cells.
-The most suppressed pathways in cluster 1 are lipid metabolic process and neuron projection and synapse. 
+The activated pathways in Cluster 1 involve long-chain fatty acid and transmembrane transporter activity, suggesting that these tumors have increased activity in lipid transport and membrane remodeling. The previously observed upregulation of COL17A1 (a structural collagen) and KRT16 (an epithelial filament protein) suggests that these structural keratins work in tandem with membrane transporters to maintain the hyper-proliferative state of squamous cells.
+
+Conversely, the suppressed pathways include lipid metabolic processes, carboxylic acid metabolic processes, and neuron projection/synapse pathways. This suggests a significant shift in the cell composition and metabolic streamlining within the tumor microenvironment of Cluster 1. 
+
+Cluster 2
+Cluster 2 shows activation of platelet-derived growth, extracellular matrix (ECM) structural constituents, and MHC class II protein complex assembly. This confirms a "remodeling" phenotype, as these tumor cells are producing significant connective tissue and undergoing Epithelial-Mesenchymal Transition (EMT). Furthermore, the upregulation of MHC Class II and peptide antigen assembly suggests an immunologically "hot" tumor microenvironment, characterized by high infiltration of antigen-presenting cells into the tumor stroma.
+
+The suppressed pathways, including tissue, epithelial, and epidermis development, indicate that Cluster 2 samples have lost their squamous identity and shifted toward a more invasive, mesenchymal state.
+
+Cluster 3
+The activated pathways in Cluster 3 are dominated by keratinization, epidermal cell differentiation, and skin/epithelium development. The presence of SPRR (small proline-rich proteins) and KRT78 among the top 20 DE genes suggests that these cells are in a state of late-stage squamous differentiation.
+
+The suppressed pathways include the regulation of collagen fibril organization, endodermal cell differentiation, and various collagen trimers. Cluster 3 shows significantly less basement membrane remodeling activity compared to Clusters 1 and 2, suggesting this is a well-differentiated molecular subtype that maintains the structural characteristics of normal esophageal mucosa.
+
+Clsuter 4
+Cluster 4 is the most metabolically active group, with activated pathways including lipid, organic acid, and monocarboxylic acid metabolic processes, as well as oxidoreductase activity. This aligns with the Q2 findings where ALDH1A1 and UGT1A1—genes responsible for detoxification and metabolic turnover were highly upregulated.
+
+In contrast to the "hot" profile of Cluster 2, Cluster 4 suppresses MHC class II protein complex assembly and Toll-like receptor signaling. This suggests an immunologically "cold" phenotype, as the tumor cells appear to be actively evading immune detection.
+
+In summary, GSEA analysis is able to classify:
+Cluster 1 as the proliferative subtype 
+Cluster 2 as the mesenchymal/infammed subtype
+Cluster 3 as the differentiated subtype
+Cluster 4 as the metabolic/immune evasive subtype.
+
+4.	Repeat the procedure 1-3 above using the consensus clustering algorithm (e.g.,ConsensusClusterPlus R package) and report all the required findings. (5 marks)
+
+Data normalisation prior to ConsensusClusterPlus
+```{r}
+mads=apply(escc_data,1,mad)
+escc_data2=escc_data[rev(order(mads))[1:1500],]
+
+# Data is normalized by centering around gene median
+c_escc_data = sweep(escc_data2,1, apply(escc_data2,1,median))
+
+```
+
+```{r}
+library(ConsensusClusterPlus)
+
+consensus_escc = ConsensusClusterPlus(as.matrix(c_escc_data), 
+                                      maxK=10, # Run 10 clusters
+                                      reps=500, # 500 repetitions
+                                      pItem=0.8,
+                                      pFeature=1,
+                                      clusterAlg="hc",
+                                      distance="pearson",
+                                      seed=420,
+                                      plot=NULL)
+```
+
+According to the Delta Area plot, the "Rule of Thumb" is to find the K value where the relative increase in the area under the CDF curve drops off significantly. The plot clearly shows while the maximum relative change in the area under the CDF curve occurs at K = 2 and K =3, these values are nearly identical, suggesting a plateau of stability. A significant drop occurs at K = 4, after which the curve flattens toward zero. This indicates that K = 4 is the optimal number of clusters, capturing the most complex biological structure before reaching a point of diminishing returns in cluster stability.
+
+Extract the results from ConsensusClusterPlus object
+```{r}
+escc_clusters <- consensus_escc[[4]]$consensusClass
+table(escc_clusters)
+```
+
+Use limma to find significant genes based on differential expression
+
+```{r}
+# Create an empty list to store the results when accessing all 4 clusters
+cc_top_20_list <- list()
+cc_all_genes_list <- list()
+
+# Create a loop to go through all 4 clusters
+for (k in 1:4) {
+
+  cc_group <- factor(ifelse(escc_clusters == k, "ClusterCC", "Rest"))
+  
+  # Design matrix
+  cc_mod <- model.matrix(~0 + cc_group)
+  colnames(cc_mod) <- c("ClusterCC", "Rest")
+  rownames(cc_mod) <- colnames(escc_exp)
+  
+  # Fit linear model
+  cc_fit <- lmFit(escc_exp, cc_mod)
+  # Contrast - Subtract the average of Other from the average of ClusterK
+  cc_con.matrix <- makeContrasts(ClusterCCvsRest = ClusterCC - Rest, levels = cc_mod)
+  # Apply contrast to the linear model
+  cc_fit2 <- contrasts.fit(cc_fit, cc_con.matrix)
+  cc_fit2 <- eBayes(cc_fit2)
+  
+  # Top 20 DE genes
+  cc_top20 <- topTable(cc_fit2, adjust = "BH", number = 20, sort.by = "logFC")
+  cc_top_20_list[[k]] <- cc_top20
+  
+  # All DE genes for GSEA
+  cc_all_genes <- topTable(cc_fit2, adjust ="BH", number =Inf)
+  cc_all_genes_list <- append(cc_all_genes_list, list(cc_all_genes))
+  
+  cat("\n=== Top 20 DE Genes for Consensus Clustering", k, "vs all others ===\n")
+  print(cc_top20)
+}
+```
+
+Cluster 1 indicates a well-Differentiated subtype due to high expression of genes associated with epidermal differentiation complex, such as CRCT1, CNFN, and the SPRR family (SPRR2E, SPRR3, SPRR2A). This signature correspond to the signature identified in NMF cluster 3. 
+
+Cluster 2 indicates a metabolic/detoxification subtype because of high level expression of ALDH3A1 & AKR1C3/AKR1B10 which are the cell's primary defense against oxidative stress and toxic byproducts of metabolism; CES1 which involved in the hydrolysis of various xenobiotics (foreign substances like drugs or toxins and CYP4F11 which is a Cytochrome P450 enzyme involved in the metabolism of lipids and fatty acids.
+
+Cluster 3 represents an undifferentiated or basal-like subtype because there are significant downregulation of squamous maturation markers, including the Small Proline-Rich Protein (SPRR) family and peptidase inhibitor (PI3). PI3 stops enzymes from breaking down the epithelial structure, hence loss of PI3 lead to tumour microenvironment more susceptible in structural breakdown. 
+
+Cluster 4 is identified as the inflamed subtype as shown by upregulation of immune-effector genes (CXCL10, GBP5 & GNLY) indicating a T-cell infiltration and interferon signaling are taking place. This cluster also shows loss of squamous and metabolic markers such as AKR1C2, CES1 and SPRR3 suggesting that the biological profile is shifted entirely toward an immune-active state.
+
+Perform GSEA and report the most upregulated and downregulated pathways for each cluster
+
+```{r}
+# Perform ranked gene lists from limma results
+cc_gene_lists <- list()
+
+for (i in 1:4) {
+  cc_gene_list <- cc_all_genes_list[[i]]$logFC
+  cc_gene_list <- log2(10^cc_gene_list)
+  names(cc_gene_list) <- rownames(cc_all_genes_list[[i]])
+  cc_gene_list <- sort(cc_gene_list, decreasing = TRUE)
+  cc_gene_lists[[i]] <- cc_gene_list
+}
+
+# Run GSEA 
+cc_GSEA_res <- list()
+
+for (i in 1:4) {
+  set.seed(420)
+  cc_gse <- gseGO(geneList = cc_gene_lists[[i]], 
+               ont = "ALL", 
+               keyType = "SYMBOL", 
+               nPerm = 1000, 
+               minGSSize = 3, 
+               maxGSSize = 800, 
+               pvalueCutoff = 0.05, 
+               verbose = TRUE, 
+               OrgDb = "org.Hs.eg.db", 
+               pAdjustMethod = "none")
+  cc_GSEA_res[[i]] <- cc_gse
+}
+
+# Dotplots 
+for (i in 1:4) {
+  plot(dotplot(cc_GSEA_res[[i]], showCategory = 10, split = ".sign",
+               title = paste0("Cluster ", i), font.size = 6) + 
+         facet_grid(. ~ .sign))
+}
+```
+
+Interpretation of dotplots (ConsensusClusterPlus)
+Cluster 1 
+It shows activation of epithelial cell differentiation, secretory granule, secretory vesicle, cytosol, membrane and extracellular space and region. These suggests tumours retained epithelial function. 
+
+The suppressed pathways include 1) structural/extracellular matrix pathways e.g. elastic fiber assembly, elastic fiber, aorta morphogenesis; 2) growth signalling pathway e.g. platelet-derived growth factor binding; 3) tissue remodelling e.g. intramembranous ossification, direct ossification and 4) neural/stromal microenvironment pathways e.g. perisynaptic/synapse-associated extracellular matrix. Suppression of these pathways suggest reduced stromal remodelling. 
+
+Cluster 2 
+It is characterised as metabolically active tumours with with immune suppression as it has a strong activation of metabolic pathways e.g. primary metabolic process, small molecule metabolic process, lipid/carboxylic/organic acid metabolic process. It also shows high oxidative activity.
+
+Immune-related pathways are suppressed in cluster 2, particularly MHC class II antigen presentation and innate immune response. This indicates a cold tumour with potential immune evasion.
+
+Cluster 3 
+It shows strong activation of stromal and mesenchymal pathways e.g. aorta smooth muscle tissue morphogenesis, fibroblast migration and cell adhesion pathway e.g. substrate adhesion-dependent cell spreading. This cluster also show increased immune-related activity such as immunoglobulin receptor binding, complement-dependent cytotoxicity. 
+
+Conversely, the suppressed pathways include epidermis development, epithelial cell differentiation, epithelium development, metabolic activity and developmental pathways. This profile suggest a mesenchymal/stromal-enriched tumour subtype potentially reflecting epithelial-to-mesenchymal transition (EMT).
+
+Cluster 4 
+It shows broad activation of general cell signalling, communication, and stress response pathways e.g. positive regulation of biological process, regulation of response to stimulus, signal transduction, signalling, cell communication. 
+
+Detoxification and drug metabolism pathways are strongly suppressed including glutathione metabolism, redox homeostasis, and daunorubicin/doxorubicin metabolism. This suggests these tumours may have reduced drug detoxification capacity, potentially making them more sensitive to chemotherapy. 
+
+In summary, GSEA analysis identified these 4 clusters generated by ConsensusClusterPlus as:
+Cluster 1 belongs to the Well-Differentiated (Epithelial-Stable) Subtype.
+Cluster 2 belongs to the Metabolic / Immune-Cold Subtype
+Cluster 3 belongs to the Mesenchymal / Immune-Hot Subtype
+Cluster 4 belongs to the Stress-Responsive / Chemo-Sensitive Subtype
+ 
+5.	Finally, compare the clusters and cluster membership between that based on NMF and that from consensus clustering. Are these clusters similar? Are the upregulated and downregulated pathways identified from the two algorithms similar? Comment on the comparison. (4 marks)
+
+Subtype profile: Well-differentiated
+NMF cluster 3
+Consensus cluster 1
+Both algorithms show epithelial differentiation and identified KRT4/13 and SPRR genes.
+
+Subtype profile: Metabolic / Immune-Cold
+NMF cluster 4
+Consensus cluster 2
+Both algorithms show metabolic activation and immune suppression. 
+
+Subtype profile: Mesenchymal / Invasive
+NMF cluster 2
+Consensus cluster 3
+Both algorithms show stromal/mesenchymal activation and immune inflamed
+
+Subtype profile: Aggresive/Stress
+NMF cluster 1
+Consensus cluster 4
+Both algorithms show active signalling, stress response with NMF focused on the proliferative side while consensus focused on the stress and chemosensitive side.
+
+
+
+
 
 
 
