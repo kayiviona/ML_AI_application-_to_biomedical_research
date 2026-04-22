@@ -287,7 +287,7 @@ consensus_escc = ConsensusClusterPlus(as.matrix(c_escc_data),
 
 According to the Delta Area plot, the "Rule of Thumb" is to find the K value where the relative increase in the area under the CDF curve drops off significantly. The plot clearly shows while the maximum relative change in the area under the CDF curve occurs at K = 2 and K =3, these values are nearly identical, suggesting a plateau of stability. A significant drop occurs at K = 4, after which the curve flattens toward zero. This indicates that K = 4 is the optimal number of clusters, capturing the most complex biological structure before reaching a point of diminishing returns in cluster stability.
 
-Extract the results from ConsensusClusterPlus object
+Extract cluster membership from ConsensusClusterPlus object
 ```{r}
 escc_clusters <- consensus_escc[[4]]$consensusClass
 table(escc_clusters)
@@ -408,26 +408,59 @@ Cluster 4 belongs to the Stress-Responsive / Chemo-Sensitive Subtype
  
 5.	Finally, compare the clusters and cluster membership between that based on NMF and that from consensus clustering. Are these clusters similar? Are the upregulated and downregulated pathways identified from the two algorithms similar? Comment on the comparison. (4 marks)
 
+Compare NMF and consensus clustering cluster membership 
+```{r}
+# Create the contingency table
+clusters_compare <- table(NMF = cluster_memberships, Consensus = escc_clusters)
+print(clusters_compare)
+```
+
+Interpretation of contingency table
+Contingency table is like confusion matrix which is the standard method to visualise how samples are distributed between two different clustering results. High scores mean these clusters are equivalent, whereas the scores are split across different clusters mean discordance. 
+
+As shown, NMF cluster 4 and Consensus cluster 2 have 24 samples, this is a strong evidence that all these samples that belong to metabolic/immune-cold subtype were grouped together in a same cluster in both algorithms. NMF cluster 2 and Consensus cluster 3 have 18 samples belong to mesenchymal/invasive subtype stayed together. NMF cluster 3 and Consensus cluster 1 have 9 samples that are well-differentiated cells overlapped.. However, some samples from NMF cluster 3 were grouped separately to Consensus cluster 2, suggesting Consensus clustering algorithm detected some metabolic genes in these samples thus grouping them to Consensus cluster 2. The most discordance occurred in NMF cluster 1 as the scores are scattered across all Consensus clusters. NMF algorithm grouped this hyperproliferative samples based on a shared keratin profile while Consensus clustering further sub-divide them based on immune microenvironment and stress-response signalling. 
+
 Subtype profile: Well-differentiated
 NMF cluster 3
 Consensus cluster 1
-Both algorithms show epithelial differentiation and identified KRT4/13 and SPRR genes.
+Number of samples shared: 9
+Consistency: Moderate
+Both algorithms offer unique perspectives. NMF highlights the physical growth machinery (transporters and structural keratins) of the proliferative state, whereas Consensus Clustering focuses on the signalling and vulnerability of this state, showing high stress-response signaling but a failure of detoxification pathways.
 
-Subtype profile: Metabolic / Immune-Cold
+Subtype profile: Metabolic/Immune-Cold
 NMF cluster 4
 Consensus cluster 2
-Both algorithms show metabolic activation and immune suppression. 
+Number of samples shared: 24
+Consistency: Very High
+Both algorithms nearly overlapping perfectly as both identified lipid and organic acid metabolism as the dominant activated pathways and MHC Class II/Immune response as the primary suppressed pathways (Immune-Cold phenotype). 
 
-Subtype profile: Mesenchymal / Invasive
+Subtype profile: Mesenchymal/Invasive
 NMF cluster 2
 Consensus cluster 3
-Both algorithms show stromal/mesenchymal activation and immune inflamed
+Number of samples shared: 18
+Consistency: High
+Both algorithms capture the EMT. They show a clear lineage swap where epidermis development is suppressed in favor of extracellular matrix structural constituents and fibroblast migration. Both also link this mesenchymal state to an Immune-Hot environment i.e. MHC Class II in NMF and Immunoglobulin binding in Consensus.
 
-Subtype profile: Aggresive/Stress
+Subtype profile: Aggressive/Stress
 NMF cluster 1
-Consensus cluster 4
-Both algorithms show active signalling, stress response with NMF focused on the proliferative side while consensus focused on the stress and chemosensitive side.
+Consensus cluster 1 and 4
+Number of samples shared: 12 and 10
+Consistency: Very High
+Both algorithms show active signalling, stress response with NMF focused on the proliferative side while Consensus Clustering focused on the stress and chemosensitive side.
 
+Conclusion
+The upregulated and downregulated pathways identified by both algorithms are highly concordant, they both identified four nearly identical biological states with the strongest similarity in the differentiated and metabolic groups, while the differences arise in immune vs growth signals in the aggressive samples. NMF seems to be more sensitive to structural and metabolic enzymes, making it an ideal model for lineage classification. Consensus Clustering is more sensitive to cell signaling and microenvironmental interactions, suitable for identifying therapeutic vulnerabilities like drug sensitivity or immune evasion.
+
+6.	Can you suggest the most appropriate procedure for any unsupervised clustering analysis of a given dataset? How to generate the most robust, reliable clusters? (4 marks)
+
+To generate robust and reliable clusters in any unsupervised analysis that truely represent the biological or physical phenomena, we have to ensure:
+1)  Data normalisation and transformation - Sequencing raw data should be log-transformed to handle the mean-variance relationships prior to downstream analysis.
+2) Feature Selection - Select the top few thousands most variable genes for clustering to ensure the algorithm focuses on the genes that are genuinely different from one to another.
+3) Batch correction - Samples come from different batches/sources or processed by different labs could induce biases in the data, apply batch correction/integration so clusters reflect biology rather than technical variation.
+4) Use multiple algorithms to ensure robustness - Compare linear method such as K-means or Consensus Clustring with non-linear method such a NMF. 
+5) Stability testing  - Measure how consistent clusters are across re-sampling, different seeds and parameter choices.
+6) Biological Validation - Run downstream analysis such as differential expression between clusters to find gene signatures; functional enrichment such as GSEA to verify if the clusters correspond to known biological functions/pathways. 
+7) External Validation - Find correlation of survival rate or tumour grade between clusters and clinical data 
 
 
 
