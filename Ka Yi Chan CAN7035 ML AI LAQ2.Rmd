@@ -52,13 +52,16 @@ plot(escc_estim.r)
 consensusmap(escc_estim.r)
 ```
 
-Interpretation of NMK rank survey
+# Interpretation of NMK rank survey
 Cophenetic correlation: It measures how faithfully the consensus matrix preserves pairwise distances, usually the higher is better. A sharp drop suggests over-splitting. As shown, K = 2 is the highest, however, k = 5 is also good.
+
 Dispersion: higher values indicate more stable/reproducible clusters. K = 2 is the most stable, then sharp drop from K = 2 to 3 then recovered at K = 5.
+
 Silhouette width: higher indicates tighter, better-separated clusters. K = 2 has the best separated clusters, but K = 3, 4 and 5 are also good.K = 3 seems to offer a better balance of high sihouette and high cophenentic correlation.
+
 Sparseness: higher sparseness means metagenes are defined by fewer genes indicates more interpretable. K = 4 and 6 have the highest values, but K. = 5 is also considered as good.
 
-Interpration of consensus map
+# Interpration of consensus map
 Consensus map measures how often the same samples appear in the same cluster across multiple different iterations of the NMF algorithm. The colour scale ranges from 0 (blue) to 1 (red). Red means two samples were clustered together in 100% of the runs. Blue means these samples were never clustered together. According to the consensus map, K = 2 has two big red blocks with no noise and K = 3 splits into three distinct blocks but one cluster looks less well-defined. K = 4 shows four reasonably distinct blocks with good separation, its silhouette range 0.99 - 0.5 indicates most samples fit well with a few borderline. K = 5 and 6 clearly show fragmented and many misassigned samples. 
 
 In summary, it seems that K = 2 achieves the highest cophenetic correlation but two clusters is too coarse to capture the molecular heterogeneity within ESCCC. I have chosen K = 4 to be the optimal number of clusters because 1), the cophenetic correlation remains high indicating stable cluster assignments; 2) dispersion shows a recovery at  = 4; 3) sparseness peaks at K = 4 meaning samples are most distinctly assigned to a single cluster and 4) silhouette drops sharply and consensus maps become fragmented beyond K = 4. 
@@ -230,34 +233,34 @@ for (i in 1:4) {
 
 ```
 
-Interpretation of dotplots
+# Interpretation of dotplots
 The name of the pathways are on the y-axis, while the plots are divided into activated (upregulated) and suppressed (downregulated) categories for each cluster. The count and bubble size represent the number of genes from each specific pathway identified in the dataset. The color of the p.adjust bubbles represents statistical significance, ranging from red (more significant) to blue (less significant).  
 
-Cluster 1
+Cluster 1:
 The activated pathways in Cluster 1 involve long-chain fatty acid and transmembrane transporter activity, suggesting that these tumors have increased activity in lipid transport and membrane remodeling. The previously observed upregulation of COL17A1 (a structural collagen) and KRT16 (an epithelial filament protein) suggests that these structural keratins work in tandem with membrane transporters to maintain the hyper-proliferative state of squamous cells.
 
 Conversely, the suppressed pathways include lipid metabolic processes, carboxylic acid metabolic processes, and neuron projection/synapse pathways. This suggests a significant shift in the cell composition and metabolic streamlining within the tumor microenvironment of Cluster 1. 
 
-Cluster 2
+Cluster 2:
 Cluster 2 shows activation of platelet-derived growth, extracellular matrix (ECM) structural constituents, and MHC class II protein complex assembly. This confirms a "remodeling" phenotype, as these tumor cells are producing significant connective tissue and undergoing Epithelial-Mesenchymal Transition (EMT). Furthermore, the upregulation of MHC Class II and peptide antigen assembly suggests an immunologically "hot" tumor microenvironment, characterized by high infiltration of antigen-presenting cells into the tumor stroma.
 
 The suppressed pathways, including tissue, epithelial, and epidermis development, indicate that Cluster 2 samples have lost their squamous identity and shifted toward a more invasive, mesenchymal state.
 
-Cluster 3
+Cluster 3:
 The activated pathways in Cluster 3 are dominated by keratinization, epidermal cell differentiation, and skin/epithelium development. The presence of SPRR (small proline-rich proteins) and KRT78 among the top 20 DE genes suggests that these cells are in a state of late-stage squamous differentiation.
 
 The suppressed pathways include the regulation of collagen fibril organization, endodermal cell differentiation, and various collagen trimers. Cluster 3 shows significantly less basement membrane remodeling activity compared to Clusters 1 and 2, suggesting this is a well-differentiated molecular subtype that maintains the structural characteristics of normal esophageal mucosa.
 
-Clsuter 4
+Cluster 4:
 Cluster 4 is the most metabolically active group, with activated pathways including lipid, organic acid, and monocarboxylic acid metabolic processes, as well as oxidoreductase activity. This aligns with the Q2 findings where ALDH1A1 and UGT1A1—genes responsible for detoxification and metabolic turnover were highly upregulated.
 
 In contrast to the "hot" profile of Cluster 2, Cluster 4 suppresses MHC class II protein complex assembly and Toll-like receptor signaling. This suggests an immunologically "cold" phenotype, as the tumor cells appear to be actively evading immune detection.
 
 In summary, GSEA analysis is able to classify:
-Cluster 1 as the proliferative subtype 
-Cluster 2 as the mesenchymal/infammed subtype
-Cluster 3 as the differentiated subtype
-Cluster 4 as the metabolic/immune evasive subtype.
+* Cluster 1 as the proliferative subtype 
+* Cluster 2 as the mesenchymal/infammed subtype
+* Cluster 3 as the differentiated subtype
+* Cluster 4 as the metabolic/immune evasive subtype.
 
 4.	Repeat the procedure 1-3 above using the consensus clustering algorithm (e.g.,ConsensusClusterPlus R package) and report all the required findings. (5 marks)
 
@@ -379,32 +382,32 @@ for (i in 1:4) {
 }
 ```
 
-Interpretation of dotplots (ConsensusClusterPlus)
-Cluster 1 
+# Interpretation of dotplots (ConsensusClusterPlus)
+Cluster 1:
 It shows activation of epithelial cell differentiation, secretory granule, secretory vesicle, cytosol, membrane and extracellular space and region. These suggests tumours retained epithelial function. 
 
 The suppressed pathways include 1) structural/extracellular matrix pathways e.g. elastic fiber assembly, elastic fiber, aorta morphogenesis; 2) growth signalling pathway e.g. platelet-derived growth factor binding; 3) tissue remodelling e.g. intramembranous ossification, direct ossification and 4) neural/stromal microenvironment pathways e.g. perisynaptic/synapse-associated extracellular matrix. Suppression of these pathways suggest reduced stromal remodelling. 
 
-Cluster 2 
-It is characterised as metabolically active tumours with with immune suppression as it has a strong activation of metabolic pathways e.g. primary metabolic process, small molecule metabolic process, lipid/carboxylic/organic acid metabolic process. It also shows high oxidative activity.
+Cluster 2:
+It is characterised as metabolically active tumours with immune suppression as it has a strong activation of metabolic pathways e.g. primary metabolic process, small molecule metabolic process, lipid/carboxylic/organic acid metabolic process. It also shows high oxidative activity.
 
 Immune-related pathways are suppressed in cluster 2, particularly MHC class II antigen presentation and innate immune response. This indicates a cold tumour with potential immune evasion.
 
-Cluster 3 
+Cluster 3:
 It shows strong activation of stromal and mesenchymal pathways e.g. aorta smooth muscle tissue morphogenesis, fibroblast migration and cell adhesion pathway e.g. substrate adhesion-dependent cell spreading. This cluster also show increased immune-related activity such as immunoglobulin receptor binding, complement-dependent cytotoxicity. 
 
 Conversely, the suppressed pathways include epidermis development, epithelial cell differentiation, epithelium development, metabolic activity and developmental pathways. This profile suggest a mesenchymal/stromal-enriched tumour subtype potentially reflecting epithelial-to-mesenchymal transition (EMT).
 
-Cluster 4 
+Cluster 4:
 It shows broad activation of general cell signalling, communication, and stress response pathways e.g. positive regulation of biological process, regulation of response to stimulus, signal transduction, signalling, cell communication. 
 
 Detoxification and drug metabolism pathways are strongly suppressed including glutathione metabolism, redox homeostasis, and daunorubicin/doxorubicin metabolism. This suggests these tumours may have reduced drug detoxification capacity, potentially making them more sensitive to chemotherapy. 
 
 In summary, GSEA analysis identified these 4 clusters generated by ConsensusClusterPlus as:
-Cluster 1 belongs to the Well-Differentiated (Epithelial-Stable) Subtype.
-Cluster 2 belongs to the Metabolic / Immune-Cold Subtype
-Cluster 3 belongs to the Mesenchymal / Immune-Hot Subtype
-Cluster 4 belongs to the Stress-Responsive / Chemo-Sensitive Subtype
+• Cluster 1 belongs to the Well-Differentiated (Epithelial-Stable) Subtype.
+• Cluster 2 belongs to the Metabolic / Immune-Cold Subtype
+• Cluster 3 belongs to the Mesenchymal / Immune-Hot Subtype
+• Cluster 4 belongs to the Stress-Responsive / Chemo-Sensitive Subtype
  
 5.	Finally, compare the clusters and cluster membership between that based on NMF and that from consensus clustering. Are these clusters similar? Are the upregulated and downregulated pathways identified from the two algorithms similar? Comment on the comparison. (4 marks)
 
@@ -415,54 +418,80 @@ clusters_compare <- table(NMF = cluster_memberships, Consensus = escc_clusters)
 print(clusters_compare)
 ```
 
-Interpretation of contingency table
+# Interpretation of contingency table
 Contingency table is like confusion matrix which is the standard method to visualise how samples are distributed between two different clustering results. High scores mean these clusters are equivalent, whereas the scores are split across different clusters mean discordance. 
 
-As shown, NMF cluster 4 and Consensus cluster 2 have 24 samples, this is a strong evidence that all these samples that belong to metabolic/immune-cold subtype were grouped together in a same cluster in both algorithms. NMF cluster 2 and Consensus cluster 3 have 18 samples belong to mesenchymal/invasive subtype stayed together. NMF cluster 3 and Consensus cluster 1 have 9 samples that are well-differentiated cells overlapped.. However, some samples from NMF cluster 3 were grouped separately to Consensus cluster 2, suggesting Consensus clustering algorithm detected some metabolic genes in these samples thus grouping them to Consensus cluster 2. The most discordance occurred in NMF cluster 1 as the scores are scattered across all Consensus clusters. NMF algorithm grouped this hyperproliferative samples based on a shared keratin profile while Consensus clustering further sub-divide them based on immune microenvironment and stress-response signalling. 
+• NMF cluster 4 and Consensus cluster 2 have 24 samples, this is a strong evidence that all these samples that belong to metabolic/immune-cold subtype were grouped together in a same cluster in both algorithms. 
 
-Subtype profile: Well-differentiated
-NMF cluster 3
-Consensus cluster 1
-Number of samples shared: 9
-Consistency: Moderate
+• NMF cluster 2 and Consensus cluster 3 have 18 samples belong to mesenchymal/invasive subtype stayed together. 
+
+• NMF cluster 3 and Consensus cluster 1 have 9 samples that are well-differentiated cells overlapped. However, some samples from NMF cluster 3 were grouped separately to Consensus cluster 2, suggesting Consensus clustering algorithm detected some metabolic genes in these samples thus grouping them to Consensus cluster 2. 
+
+• The most discordance occurred in NMF cluster 1 as the scores are scattered across all Consensus clusters. NMF algorithm grouped this hyperproliferative samples based on a shared keratin profile while Consensus clustering further sub-divide them based on immune microenvironment and stress-response signalling. 
+
+# Subtype profile: Well-differentiated
+## NMF cluster 3
+## Consensus cluster 1
+## Number of samples shared: 9
+## Consistency: Moderate
 Both algorithms offer unique perspectives. NMF highlights the physical growth machinery (transporters and structural keratins) of the proliferative state, whereas Consensus Clustering focuses on the signalling and vulnerability of this state, showing high stress-response signaling but a failure of detoxification pathways.
 
-Subtype profile: Metabolic/Immune-Cold
-NMF cluster 4
-Consensus cluster 2
-Number of samples shared: 24
-Consistency: Very High
+# Subtype profile: Metabolic/Immune-Cold
+## NMF cluster 4
+## Consensus cluster 2
+## Number of samples shared: 24
+## Consistency: Very High
 Both algorithms nearly overlapping perfectly as both identified lipid and organic acid metabolism as the dominant activated pathways and MHC Class II/Immune response as the primary suppressed pathways (Immune-Cold phenotype). 
 
-Subtype profile: Mesenchymal/Invasive
-NMF cluster 2
-Consensus cluster 3
-Number of samples shared: 18
-Consistency: High
+# Subtype profile: Mesenchymal/Invasive
+## NMF cluster 2
+## Consensus cluster 3
+## Number of samples shared: 18
+## Consistency: High
 Both algorithms capture the EMT. They show a clear lineage swap where epidermis development is suppressed in favor of extracellular matrix structural constituents and fibroblast migration. Both also link this mesenchymal state to an Immune-Hot environment i.e. MHC Class II in NMF and Immunoglobulin binding in Consensus.
 
-Subtype profile: Aggressive/Stress
-NMF cluster 1
-Consensus cluster 1 and 4
-Number of samples shared: 12 and 10
-Consistency: Very High
+# Subtype profile: Aggressive/Stress
+## NMF cluster 1
+## Consensus cluster 1 and 4
+## Number of samples shared: 12 and 10
+## Consistency: Very High
 Both algorithms show active signalling, stress response with NMF focused on the proliferative side while Consensus Clustering focused on the stress and chemosensitive side.
 
-Conclusion
+# Conclusion
 The upregulated and downregulated pathways identified by both algorithms are highly concordant, they both identified four nearly identical biological states with the strongest similarity in the differentiated and metabolic groups, while the differences arise in immune vs growth signals in the aggressive samples. NMF seems to be more sensitive to structural and metabolic enzymes, making it an ideal model for lineage classification. Consensus Clustering is more sensitive to cell signaling and microenvironmental interactions, suitable for identifying therapeutic vulnerabilities like drug sensitivity or immune evasion.
 
 6.	Can you suggest the most appropriate procedure for any unsupervised clustering analysis of a given dataset? How to generate the most robust, reliable clusters? (4 marks)
 
 To generate robust and reliable clusters in any unsupervised analysis that truely represent the biological or physical phenomena, we have to ensure:
+
 1)  Data normalisation and transformation - Sequencing raw data should be log-transformed to handle the mean-variance relationships prior to downstream analysis.
+
 2) Feature Selection - Select the top few thousands most variable genes for clustering to ensure the algorithm focuses on the genes that are genuinely different from one to another.
+
 3) Batch correction - Samples come from different batches/sources or processed by different labs could induce biases in the data, apply batch correction/integration so clusters reflect biology rather than technical variation.
-4) Use multiple algorithms to ensure robustness - Compare linear method such as K-means or Consensus Clustring with non-linear method such a NMF. 
-5) Stability testing  - Measure how consistent clusters are across re-sampling, different seeds and parameter choices.
-6) Biological Validation - Run downstream analysis such as differential expression between clusters to find gene signatures; functional enrichment such as GSEA to verify if the clusters correspond to known biological functions/pathways. 
-7) External Validation - Find correlation of survival rate or tumour grade between clusters and clinical data 
 
+4) Determine optimal clusters - Silhouette analysis/Elbow method to measure how similar a sample is to its own cluster compared to others. 
 
+5) Use Hierarchical Clustering e.g. Agglomerative clustering that works in a bottom-up manner which is good at identifying small clusters and Divisive clustering that works in a top-down manner which is good at identifying large clusters.
+
+6) Use multiple algorithms to ensure robustness - Compare linear method such as K-means or Consensus Clustering with non-linear method such a NMF. 
+
+7) Stability testing  - Measure how consistent clusters are across re-sampling, different seeds and parameter choices.
+
+8) Biological Validation - Run downstream analysis such as differential expression between clusters to find gene signatures; functional enrichment such as GSEA to verify if the clusters correspond to known biological functions/pathways. 
+
+9) External Validation - Find correlation of survival rate or tumour grade between clusters and clinical data 
+
+# References
+Qin, Z., Jiang, D., Yu, Z., Li, L., Xu, W., Xu, C., Song, Q., Sun, X., Li, L., Guo, W., Pu, Y., Feng, J., Liu, Y., Wang, H., Wang, L., Qu, Y., He, F., Qin, J., Tan, L., Zhao, J. Y., … Ding, C. (2025). Proteogenomic characterization reveals that lipid droplet formation promotes esophageal squamous cell cancer progression. Science translational medicine, 17(802), eadt0214. https://doi.org/10.1126/scitranslmed.adt0214
+
+Smyth EC, Lagergren J, Fitzgerald RC, Lordick F, Shah MA, Lagergren P, Cunningham D. Oesophageal cancer. Nat Rev Dis Primers. 2017 Jul 27;3:17048. doi: 10.1038/nrdp.2017.48. PMID: 28748917; PMCID: PMC6168059.
+
+Song, A. Y., Mu, L., Dai, X. Y., Wang, L. J., & Huang, L. Q. (2023). Analysis of Significant Genes and Pathways in Esophageal Cancer Based on Gene Expression Omnibus Database. Chinese medical sciences journal = Chung-kuo i hsueh k'o hsueh tsa chih, 38(1), 20–28. https://doi.org/10.24920/004148
+
+Yang, H., Wang, F., Hallemeier, C. L., Lerut, T., & Fu, J. (2024). Oesophageal cancer. Lancet (London, England), 404(10466), 1991–2005. https://doi.org/10.1016/S0140-6736(24)02226-8
+
+Zinovyeva, M. V., Monastyrskaya, G. S., Kopantzev, E. P., Vinogradova, T. V., Kostina, M. B., Sass, A. V., Filyukova, O. B., Uspenskaya, N. Y., Sukhikh, G. T., & Sverdlov, E. D. (2010). Identification of some human genes oppositely regulated during esophageal squamous cell carcinoma formation and human embryonic esophagus development. Diseases of the esophagus : official journal of the International Society for Diseases of the Esophagus, 23(3), 260–270. https://doi.org/10.1111/j.1442-2050.2009.01008.x
 
 
 

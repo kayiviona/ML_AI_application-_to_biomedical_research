@@ -28,16 +28,16 @@ library(survival)
 library(survminer)
 library(survivalROC)
 library(pheatmap)
-#packages<- c("tidyverse", "randomForest", "pamr", "glmnet", "Biobase", 
-#            "caret", "survival", "survminer", "survivalROC", "pheatmap")
+packages<- c("tidyverse", "randomForest", "pamr", "glmnet", "Biobase", 
+           "caret", "survival", "survminer", "survivalROC", "pheatmap")
 
 
-## Load or install these packages
+# Load or install these packages
 #for ( package in packages ) {
-#    if (! suppressPackageStartupMessages(require(package, character.only = TRUE)) ) {
-#        BiocManager::install(package,update = FALSE)
-#        suppressPackageStartupMessages(require(package, character.only = TRUE))
-#    }
+ #  if (! suppressPackageStartupMessages(require(package, character.only = TRUE)) ) {
+  #      BiocManager::install(package,update = FALSE)
+   #    suppressPackageStartupMessages(require(package, character.only = TRUE))
+   #}
 #}
 
 ```
@@ -148,8 +148,8 @@ rf_ntree <- randomForest(
 plot(rf_ntree, main = "OOB Error vs ntree")
 ```
 
-Interpretation of OOB Error vs ntree plot
-The black line represents the overall OOB error for both ABC and GCB class. Red line represents error rate for ABC class and green line represents error rate for GCB class. ABC has a higher error rate than GCB throughout as shown that the red line remained above the green line. This indicates the model will find it harder to classify ABC samples and GCB samples. The overall error rate is roughly 2% and all three lines dropped sharply in the first 100 trees, then stabilised afterwards. It seems setting ntree = 200 would be reasonable because the OOB error plot shows that error stabilised by approximately 100 trees by setting ntree = 200 would ensure the model to have fully converged. 
+# Interpretation of OOB Error vs ntree plot
+The black line represents the overall OOB error for both ABC and GCB class. Red line represents error rate of false negatives and green line represents error rate of false positive. The overall error rate is roughly 2% and all three lines dropped sharply in the first 100 trees then stabilised afterwards. It seems setting ntree = 100 would be reasonable because the OOB error plot shows that error stabilised by approximately 100 trees and by setting ntree = 100 would ensure the model to have fully converged. 
 
 Next is to tune the mtry, which is the number of features checked at each node of the trees
 
@@ -160,15 +160,15 @@ mtryTune <- tuneRF(select(train_cohort2.rf, -COO),
                    train_cohort2.rf$COO, 
                    stepFactor = 1.5,
                    plot = TRUE,
-                   ntreeTry = 200,
+                   ntreeTry = 100,
                    trace = TRUE,
                    improve = 0.01)
 ```
 
-Interpretation of mtry plot
-Using tuneRF() with ntree = 200, three mtry values were evaluated. The value mtry = 86 produced a higher OOB error (4.2%), while both mtry = 128 and mtry = 192 achieved the lowest OOB error of 2.1%. I selected mtry = 128 as it is the more computationally efficient of the two equally performing values.
+# Interpretation of mtry plot
+Using tuneRF() with ntree = 100, three mtry values were evaluated. The value mtry = 86 produced a higher OOB error (4.62%), follow by mtry = 192 with OOB error 2.52%. mtry = 128 achieved the lowest OOB error of 1.26%. I selected mtry = 128 as it is the more computationally efficient of the two equally performing values.
 
-Test the random forest model with pre-defined ntree = 200 and mtry = 128
+Test the random forest model with pre-defined ntree = 100 and mtry = 128
 
 ```{r}
 # Build the final tuned random forest model using optimised parameters
@@ -176,23 +176,26 @@ set.seed(15)
 rf_cohort2 <- randomForest(select(train_cohort2.rf, -COO), 
                     train_cohort2.rf$COO, 
                     mtry = 128, 
-                    ntree = 200)
+                    ntree = 100)
 print(rf_cohort2)
 ```
 
-Interpretation of the confusion matrix
-Type 1 Error (false positive) is when the model predicts the positive class ABC incorrectly as GCB. This means the model is over-estimating instances of positives when the ground truth is negative and is known as specificity. 
-Type II Error (false negative) is when the model predicts the non-reference GCB as ABC, which means the model is under-estimating where the positives get missed out and known as sensitivity. 
-According to the confusion matrix, there are 111 actual ABC samples are correctly predicted as ABC = true positive. 
-There are 4 actual ABC samples were predicted as GCB = false negative
-There are 1 actual GCB samples were predicted as ABC = false positive
-There are 122 actual GCB samples were correctly predicted as GCB = true negative. 
+# Interpretation of the confusion matrix
+• Type 1 Error (false positive) is when the model predicts the positive class ABC incorrectly as GCB. This means the model is over-estimating instances of positives when the ground truth is negative and is known as specificity. 
 
-Type I Error is 0.81% because falsely calling positive.
-Type II Error is 3.5 % because falsely calling negative.
+• Type II Error (false negative) is when the model predicts the non-reference GCB as ABC, which means the model is under-estimating where the positives get missed out and known as sensitivity. 
+According to the confusion matrix, there are 113 actual ABC samples are correctly predicted as ABC = true positive. 
+
+• There are 2 actual ABC samples were predicted as GCB = false negative
+• There are 1 actual GCB samples were predicted as ABC = false positive
+• There are 122 actual GCB samples were correctly predicted as GCB = true negative. 
+
+• Type I Error is 0.81% because falsely calling positive.
+• Type II Error is 1.74 % because falsely calling negative.
+
 This suggests that the model's sensitivity and specificity very similar.
 
-The overall OOB error rate is 2.1% meaning about 97.9% of samples were correctly classified during out of bag estimation. 
+The overall OOB error rate is 1.26% meaning about 98.74% of samples were correctly classified during out of bag estimation. 
 
 Next step is validation phase where the random forest model is being tested how well it learned from the patterns.
 
@@ -229,7 +232,7 @@ confusionMatrix(cohort2_p2, test_cohort2.rf$COO)
 cohort2_p2.prob <- predict(rf_cohort2, test_cohort2.rf, type = "prob")
 ```
 
-As shown in the confusion matrix from predicting on the testing data, it shows an accuracy score at 0.9911 (99.01%) The model detected 51 ABC correctly and none falsely positive (Type I Error, specificity score at 1) . It missed 1 ABC sample but the remaining was successfully identified as GCB (Type II Error, sensitivity score at 0.9808 or 98.08%). These statistics indicate that the model is not overfitting because the accuract would be much worse in test performance if it were. It performs at similar level as the training data.  
+As shown in the confusion matrix from predicting on the testing data, it shows an accuracy score at 0.9821 (98.21%) The model detected 51 ABC correctly and none falsely positive (Type I Error, specificity score at 1) . It missed 1 ABC sample but the remaining was successfully identified as GCB (Type II Error, sensitivity score at 0.9808 or 98.08%). These statistics indicate that the model is not overfitting because the accuract would be much worse in test performance if it were. It performs at similar level as the training data.  
 
 Test the model - once the model has learned the training data, Receiver Operating Characteristic (ROC) curve is used to visualise the performance and tell us how good the model is at distinguishing between ABC and GCB. The Area Under the Curve (AUC) comes from ROC curve and it plots the true positive rate (sensitivity) against false positive (specificity). AUC score at 1 means a perfect model that will distinguish the subtypes 100% correct, whilst 0.5 means the model is not better than a random occurrence. 
 
@@ -256,7 +259,7 @@ plot(
     )
 ```
 
-The Random Forest model achieved a perfect AUC of 1.0 on the training cohort and a near-perfect AUC of 0.99936 on the independent testing cohort. This consistency confirms that the model has successfully identified the underlying biological signatures rather than simply memorizing the training samples, indicating it is highly robust and free from significant overfitting.
+The Random Forest model achieved a perfect AUC of 1.0 on the training cohort and a near-perfect AUC of 0.99904 on the independent testing cohort. This consistency confirms that the model has successfully identified the underlying biological signatures rather than simply memorizing the training samples, indicating it is highly robust and free from significant overfitting.
 
 2.	Select the 1000 most important features in the model and use these to recreate the model – Report the error of this model in the training and testing cohort (OOB, type I, type 2 errors & ROC). Discuss whether it performs better or worse than the previous model. (6 marks)
 
@@ -289,20 +292,21 @@ set.seed(15)
 rf_cohort2_top1000 <- randomForest(select(train_cohort2_top1000Genes.rf, top1000Genes), 
                     train_cohort2_top1000Genes.rf$COO, 
                     mtry = 128, 
-                    ntree = 200)
+                    ntree = 100)
 print(rf_cohort2_top1000)
 ```
 
-There are 114 actual ABC samples are correctly predicted as ABC = true positive. 
-There are 1 actual ABC samples were predicted as GCB = false negative
-There are 1 actual GCB samples were predicted as ABC = false positive
-There are 122 actual GCB samples were correcly predicted as GCB = true negative. 
+• There are 114 actual ABC samples are correctly predicted as ABC = true positive. 
+• There are 1 actual ABC samples were predicted as GCB = false negative
+• There are 2 actual GCB samples were predicted as ABC = false positive
+• There are 121 actual GCB samples were correcly predicted as GCB = true negative. 
 
-Type I Error is 0.081% which was same as the previous model meaning specificity remained the same.
-Type II Error is 0.87% which has reduced compared to the previous model (3.5%), meaning sensitivity improved (less ABC samples missed and falsely called as GCB).
+• Type I Error is 1.62% which was same as the previous model meaning specificity remained the same.
+• Type II Error is 0.87% which has reduced compared to the previous model (1.74%), meaning sensitivity improved (less ABC samples missed and falsely called as GCB).
+
 This suggests the reduced feature set better at detecting ABC samples and maintained its ability to distinguishes GCB samples compared to the previous model.
 
-The overall OOB error rate is 0.81 which has improved compared to the previous model (2.1%). 
+The overall OOB error rate of this model remained same performance as the previous model (1.26%). 
 
 Test the top 1000 genes model
 ```{r}
@@ -360,7 +364,7 @@ plot(
     )
 ```
 
-Both the reduced features model achieved AUC score at 0.99968 and the previous all genes model achieved AUC score at 1. It shows that by selecting the top most important features it maintains the robustness and free from significant overfitting.
+Both the reduced features model achieved AUC score at 0.99936 and the previous all genes model achieved AUC score at 1. It shows that by selecting the top most important features it maintains the robustness and free from significant overfitting.
 
 3.	Recursively retrain the model using the n most important features (where n is a reducing number of features) to find the optimum number of genes to include in the training. Report the error of the model in the training and testing cohort, including OOB, type I, type 2 errors & ROC. Discuss the n value chosen, explaining your strategy for gene selection and describe which of the 3 models you feel best models the data (7 marks)
 
@@ -383,7 +387,7 @@ for (n in n_genes) {
   top_genes_rf <- randomForest(select(train_cohort2.rf, all_of(genes_ranked[1:n])), 
                     train_cohort2.rf$COO, 
                     mtry = floor(sqrt(n)), 
-                    ntree = 200)
+                    ntree = 100)
   
   # OOB Errors
   oob_error <- top_genes_rf$err.rate[nrow(top_genes_rf$err.rate), "OOB"]*100
@@ -405,36 +409,36 @@ for (n in n_genes) {
 }
 ```
 
-The AUC remained almost perfect (from 1 to 0.9941) despite I dropped from 1000 genes down to 10. This suggests that the signal for distinguishing ABC from GCB is very strong in a small number of genes.
+The AUC remained almost perfect (from 1 to 0.9913) despite I dropped from 1000 genes down to 10. This suggests that the signal for distinguishing ABC from GCB is very strong in a small number of genes.
 
-When comparing the OOB, type I and type II errors, it is clear that at 200 genes have the lowest errors rates compared to other number of genes selected. At 50 genes the OOB error increased to 2.52% and at 10 genes it went up to 3.78%. The type I and II errors also began to increased sharply from 50 to 10 genes. This indicated that 50 genes or lower are not good enough to capture the biological complexity of the subtypes.
+When comparing the OOB, type I and type II errors, it is clear that 600 genes has the lowest OOB error rates (1.26%) compared to other number of genes selected. It has low and balanced Type I (1.63%) and Type II (0.87%) errors and AUC = 0.9994. 400 genes has 0% Type II but inflated Type I (3.25%) which shows biased toward predicting GCB.
 
-Therefore, the optimal number of genes is 200 because at this threshold, the model maintains a near-perfect AUC (0.9997) and 0% Type II error rate on the test set. 
+Therefore, the optimal number of genes is 600 because at this threshold, the model maintains a near-perfect AUC (0.9997) and 0% Type II error rate on the test set. 
 
-When comparing the three models: full feature set, top 1000 genes subset and the optimised 200 genes subset, I believe the 200 genes model would be the most ideal representation of the data. The reasons are that: 1) the full feature model contain redundant information which may induce noise and take up too much unnecessary computational work; 2) the 1000 genes model maintained the same performance as the full features but might still contain redundant information that could still take up unnecessary computational work and 3) the 200 genes model achieved maximum accuracy with the minimum number of features, thus it is more practical for development into a diagnostic assay than using a whole transcriptome approach.
+When comparing the three models: full feature set, top 1000 genes subset and the optimised 600 genes subset, I believe the 600 genes model would be the most ideal representation of the data. The reasons are that: 1) the full feature model contain redundant information which may induce noise and take up too much unnecessary computational work; 2) the 1000 genes model maintained the same performance as the full features but might still contain redundant information that could still take up unnecessary computational work and 3) the 600 genes model achieved maximum accuracy with the minimum number of features, thus it is more practical for development into a diagnostic assay than using a whole transcriptome approach.
 
 4.	Using your final optimum model, predict the cell of origin in Cohort 1 (the cohort used in the practical). Report the type 1 and type 2 errors and a ROC curve in this validation cohort. Discuss whether this model works within this validation cohort and explain your reasoning. 
 
-Define the top 100 genes
+Define the top 600 genes
 ```{r}
-top200genes <- genes_ranked[1:200]
+top600genes <- genes_ranked[1:600]
 ```
 
 Rebuild the optimal model before answering Q4
 ```{r}
 set.seed(15)
 optimal_model_rf <- randomForest(
-  select(train_cohort2.rf, all_of(top200genes)),
+  select(train_cohort2.rf, all_of(top600genes)),
   train_cohort2.rf$COO,
-  ntree = 200,
-  mtry = floor(sqrt(200))
+  ntree = 100,
+  mtry = floor(sqrt(600))
   
 )
 
 print(optimal_model_rf)
 ```
 
-The confusion matrix of the optimal model shows OOB error rate at 2.1%, type I error rate at 3.25% and type II error rate at 0.87%. 
+The confusion matrix of the optimal model shows OOB error rate at 1.26%, type I error rate at 2.4% and type II error rate at 0%. 
 
 Laod Cohort 1 dataset
 ```{r}
@@ -469,19 +473,19 @@ cohort1_rf <- cbind(
 cohort1_rf[1:5, 1:5]
 ```
 
-Filter the data to only include the 200 genes optimal model from Q3 and inspect data frame
+Filter the data to only include the 600 genes optimal model from Q3 and inspect data frame
 
 ```{r}
-cohort1_rf <- cohort1_rf[, c("COO", top200genes)]
+cohort1_rf <- cohort1_rf[, c("COO", top600genes)]
 
 cohort1_rf[1:5, 1:5]
 ```
 ```{r}
-# Check if Cohort 1 contains all 200 genes from the optimal model
-all(top200genes %in% colnames(cohort1_rf))
+# Check if Cohort 1 contains all 600 genes from the optimal model
+all(top600genes %in% colnames(cohort1_rf))
 ```
 
-Testing Cohort 1 using top200genes model
+Testing Cohort 1 using top600genes model
 
 ```{r}
 # Predict on Cohort 1
@@ -496,11 +500,254 @@ rf.cohort1.ROC <- pROC::roc(cohort1_rf$COO, cohort1_p2[, "GCB"])
 plot(rf.cohort1.ROC, main = paste("Cohort 1 Validation AUC", round(rf.cohort1.ROC$auc, 5)))
 ```
 
-Interpretation of Cohort 1 validation using the optimal model from Q3
-The confusion matrix and statistics showed that the model performed poorly on the validation cohort, it failed to detect vast majority of ABC samples (only detected 3 ABC samples, sensitivity = 1.2%) and identified all samples as GCB (specificity = 1), hence its overall OOB error rate as 0.6842. However, the AUC score is 0.94008 suggested that the optimal model was still able to distinguish the ABC subtypes from GCB subtypes based on different gene expression patterns. The reasons why this model failed to identify ABC despite the AUC score was still relatively high, could be that the range of the expression values in both cohorts are different therefore the threshold set by random forest was not able to detect ABC samples. The difference between the two cohorts expression values could due to data have not been normalised or caused by technical batch effects from the sequencing process. 
+# Interpretation of Cohort 1 validation using the optimal model from Q3
+The confusion matrix and statistics showed that the model performed poorly on the validation cohort, it failed to detect ABC samples completely (sensitivity = 0%) and identified all samples as GCB (specificity = 1), hence its overall OOB error rate as 0.6805. The AUC score also dropped from 1 (in cohort 2) to 0.71397. Despite the drop in the  AUC score, this score was still suggesting that the optimal model still has some real discriminatory power to distinguish the ABC subtypes from GCB subtypes based on different gene expression patterns. 
 
+The reasons why this model failed to identify ABC at all could be:
+1) The model learned the training cohort 2 very well but fail to generalise to Cohort 1. To improve it, a further optimisation of the mtry and ntree parameters and re-select the top n number of features may needed. 
 
-To check the range of expression values of two cohorts
+2) Cohort 1 has larger sample size (798 samples) which has more diverse dataset and greater heterogeneity than the smaller training Cohort (350 samples) making the accurate classification more challenging.
+
+3) Cohort 1 and Cohort 2 might have been processed differently. This could lead to a big difference in the range of the expression values in both cohorts, therefore the threshold set by random forest was not able to detect ABC samples. The differences could due to data have not been normalised or caused by technical batch effects from the sequencing process.
+
+# Re-optimisation of ntree
+```{r}
+# Choose a higher number of ntree e.g. ntree = 200 would ensure the model to have fully converged.
+set.seed(15)
+mtryTune2 <- tuneRF(select(train_cohort2.rf, -COO), 
+                   train_cohort2.rf$COO, 
+                   stepFactor = 1.5,
+                   plot = TRUE,
+                   ntreeTry = 200,
+                   trace = TRUE,
+                   improve = 0.01)
+```
+
+Optimal mtry is still 128
+```{r}
+# Build  random forest v02 model using optimised parameters
+set.seed(15)
+rf_cohort2_v2 <- randomForest(select(train_cohort2.rf, -COO), 
+                    train_cohort2.rf$COO, 
+                    mtry = 128, 
+                    ntree = 200)
+print(rf_cohort2_v2)
+```
+
+The OOB, Type 1 and 2 Error rates did not improve compared to previous parameters where ntree = 100 and mtry = 128.
+
+Test version 2 model on Cohort 2
+```{r}
+cohort2_p1_v2 <- predict(rf_cohort2_v2, train_cohort2.rf)
+
+confusionMatrix(cohort2_p1_v2, train_cohort2.rf$COO)
+```
+
+```{r}
+cohort2_p1_v2.prob <- predict(rf_cohort2_v2, train_cohort2.rf, type = "prob")
+```
+
+Test the model_v02 on testing cohort
+```{r}
+cohort2_p2_v2 <- predict(rf_cohort2_v2, test_cohort2.rf)
+
+confusionMatrix(cohort2_p2_v2, test_cohort2.rf$COO)
+```
+
+```{r}
+cohort2_p2_v2.prob <- predict(rf_cohort2_v2, test_cohort2.rf, type = "prob")
+```
+
+Evaluate model_v02's performance
+```{r}
+rf.train_cohort2_v2.predict.ROC <- pROC::roc(
+    train_cohort2$COO, 
+   cohort2_p1_v2.prob[,"GCB"])
+```
+
+```{r}
+plot(
+    rf.train_cohort2_v2.predict.ROC,
+    main = paste("AUC", round(rf.train_cohort2_v2.predict.ROC$auc, 5))
+    )
+```
+
+Evaluate the model_v02's true predictive power on unseen clinical samples
+```{r}
+rf.test_cohort2_v2.predict.ROC <- pROC::roc(
+    test_cohort2$COO, 
+    cohort2_p2_v2.prob[,"GCB"])
+```
+
+```{r}
+plot(
+    rf.test_cohort2_v2.predict.ROC,
+    main = paste("AUC", round(rf.test_cohort2_v2.predict.ROC$auc, 5))
+    )
+
+```
+
+Extract the top 1000 genes ranked by importance 
+```{r}
+top1000Genes_v2 <- 
+    importance(rf_cohort2_v2) %>% 
+    as.data.frame() %>% 
+    arrange(-MeanDecreaseGini) %>%
+    rownames() %>% 
+    .[1:1000]
+
+head(top1000Genes_v2, 10)
+```
+
+Create new dataset containing these 1000 genes and the COO column
+```{r}
+train_cohort2_top1000Genes_v2.rf <- select(train_cohort2.rf, c('COO', top1000Genes_v2))
+```
+```{r}
+test_cohort2_top1000Genes_v2.rf <- select(test_cohort2.rf, c('COO', top1000Genes_v2))
+
+set.seed(15)
+rf_cohort2_top1000_v2 <- randomForest(select(train_cohort2_top1000Genes_v2.rf, top1000Genes_v2), 
+                    train_cohort2_top1000Genes_v2.rf$COO, 
+                    mtry = 128, 
+                    ntree = 200)
+print(rf_cohort2_top1000_v2)
+```
+
+Test the top 1000 genes model_v2
+```{r}
+cohort2_top1000_p1_v2 <- predict(
+    rf_cohort2_top1000_v2, 
+    train_cohort2_top1000Genes_v2.rf)
+
+confusionMatrix(cohort2_top1000_p1_v2, train_cohort2_top1000Genes_v2.rf$COO)
+```
+
+```{r}
+cohort2_top1000_p1_v2.prob <- predict(rf_cohort2_top1000_v2, train_cohort2_top1000Genes_v2.rf, type = "prob")
+```
+
+```{r}
+cohort2_top1000_p2_v2 <- predict(
+    rf_cohort2_top1000_v2,
+    test_cohort2_top1000Genes_v2.rf)
+
+confusionMatrix(cohort2_top1000_p2_v2, test_cohort2_top1000Genes_v2.rf$COO)
+```
+
+```{r}
+cohort2_top1000_p2_v2.prob <- predict(rf_cohort2_top1000_v2, test_cohort2_top1000Genes_v2.rf, type = "prob")
+```
+
+Evaluate the model_v02's performance to distinguish subtypes in training data
+```{r}
+rf.train_cohort2_top1000_v2.predict.ROC <- pROC::roc(
+    train_cohort2_top1000Genes_v2.rf$COO, 
+    cohort2_top1000_p1_v2.prob[,"GCB"])
+```
+
+```{r}
+plot(
+    rf.train_cohort2_top1000_v2.predict.ROC,
+    main = paste("AUC", round(rf.train_cohort2_top1000_v2.predict.ROC$auc, 5))
+    )
+```
+
+Evaluate the model_v02's true predictive power on unseen clinical samples
+```{r}
+rf.test_cohort2_top1000_v2.predict.ROC <- pROC::roc(
+    test_cohort2_top1000Genes_v2.rf$COO, 
+    cohort2_top1000_p2_v2.prob[,"GCB"])
+```
+```{r}
+plot(
+    rf.test_cohort2_top1000_v2.predict.ROC,
+    main = paste("AUC", round(rf.test_cohort2_top1000_v2.predict.ROC$auc, 5))
+    )
+```
+
+Repeat Q3 for model_v2
+```{r}
+genes_ranked_v2 <-  importance(rf_cohort2_v2) %>% 
+    as.data.frame() %>% 
+    arrange(-MeanDecreaseGini) %>%
+    rownames()
+
+n_genes_v2 <- c(1000, 800, 600, 400, 200, 100, 50, 10)
+
+set.seed(15)
+for (n in n_genes_v2) {
+  
+  top_genes_rf_v2 <- randomForest(select(train_cohort2.rf, all_of(genes_ranked_v2[1:n])), 
+                    train_cohort2.rf$COO, 
+                    mtry = floor(sqrt(n)), 
+                    ntree = 200)
+  
+  oob_error_v2 <- top_genes_rf_v2$err.rate[nrow(top_genes_rf_v2$err.rate), "OOB"]*100
+  type1_error_v2 <- top_genes_rf_v2$confusion["GCB", "class.error"]*100
+  type2_error_v2 <- top_genes_rf_v2$confusion["ABC", "class.error"]*100
+  
+  top_genes_p2_v2 <- predict(top_genes_rf_v2, test_cohort2.rf, type = "prob")
+  top_genes_v2_ROC <- pROC::roc(test_cohort2$COO, top_genes_p2_v2[, "GCB"])
+  top_genes_v2_AUC <- as.numeric(top_genes_v2_ROC$auc)
+
+  cat("Genes =", n,
+      "| OOB =", round(oob_error_v2, 2), "%",
+      "| Type I Error =", round(type1_error_v2, 2),"%",
+      "| Type II Error =", round(type2_error_v2, 2), "%",
+     # "| Test Prediction  =", round(top_genes_p2, 2), "%",
+      "| AUC =", round(top_genes_v2_AUC, 4), "\n")
+  
+}
+```
+
+The AUC remained almost perfect (from 1 to 0.9941) despite I dropped from 1000 genes down to 10. This suggests that the signal of model_v02 (with ntree = 200) for distinguishing ABC from GCB is very strong in a small number of genes compared to previous model where ntree = 100 was used.
+
+It is clear that at 200 genes have the lowest OOB, type I and type II errors rates compared to other number of genes selected. Therefore, the optimal number of genes is 200 because at this threshold, the model maintains a near-perfect AUC (0.9997) and 0% Type II error rate on the test set.
+
+Repeat Q4 using this model_v02 to test on Cohort 1 to see if I can improve the prediction.
+
+Define the top 200 genes
+```{r}
+top200genes <- genes_ranked[1:200]
+```
+
+Rebuild the optimal model_v2 before answering Q4
+```{r}
+set.seed(15)
+optimal_model_v2_rf <- randomForest(
+  select(train_cohort2.rf, all_of(top200genes)),
+  train_cohort2.rf$COO,
+  ntree = 200,
+  mtry = floor(sqrt(200))
+  
+)
+
+print(optimal_model_v2_rf)
+```
+
+Testing Cohort 1 using top200genes model_v2
+```{r}
+# Predict on Cohort 1 using model_v2
+cohort1_predict_v2 <- predict(optimal_model_v2_rf, select(cohort1_rf, -COO))
+confusionMatrix(cohort1_predict_v2, cohort1_rf$COO)
+```
+
+Note, using model_v02, it improved the sensitivity very slightly (4 ABC samples were detected compared to 0 in previous model).
+
+```{r}
+# Run ROC
+cohort1_p2_v2 <- predict(optimal_model_v2_rf, select(cohort1_rf, -COO), type = "prob")
+rf.cohort1_v2.ROC <- pROC::roc(cohort1_rf$COO, cohort1_p2_v2[, "GCB"])
+```
+
+```{r}
+plot(rf.cohort1_v2.ROC, main = paste("Cohort 1 Validation AUC using Model_v02", round(rf.cohort1_v2.ROC$auc, 5)))
+```
+
+Increasing ntree from 100 to 200 (model_v02) did not meaningfully improve performance on validation cohort 1. While the AUC score improved substantially from 0.714 to 0.901, the confusion matrix reveals critical limitations: the model detected only 4 ABC samples (sensitivity = 1.6%) while classifying nearly all samples as GCB (specificity = 100%). The OOB error rate of 68.4% on the training data further indicates poor overall performance. Although the improved AUC suggests some discriminative capacity, the model's inability to detect ABC samples makes it clinically impractical for this classification task.
+
+To check why the optimal model failed to predict ABC samples completely in Cohort 1, I want to check the range of expression values of two cohorts to see if they are very different.
 ```{r}
 # Check expression values of cohort 2 training data
 summary(exprs(train_cohort2)[1:5,1:5])
