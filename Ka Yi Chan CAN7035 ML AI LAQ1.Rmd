@@ -745,9 +745,47 @@ rf.cohort1_v2.ROC <- pROC::roc(cohort1_rf$COO, cohort1_p2_v2[, "GCB"])
 plot(rf.cohort1_v2.ROC, main = paste("Cohort 1 Validation AUC using Model_v02", round(rf.cohort1_v2.ROC$auc, 5)))
 ```
 
-Increasing ntree from 100 to 200 (model_v02) did not meaningfully improve performance on validation cohort 1. While the AUC score improved substantially from 0.714 to 0.901, the confusion matrix reveals critical limitations: the model detected only 4 ABC samples (sensitivity = 1.6%) while classifying nearly all samples as GCB (specificity = 100%). The OOB error rate of 68.4% on the training data further indicates poor overall performance. Although the improved AUC suggests some discriminative capacity, the model's inability to detect ABC samples makes it clinically impractical for this classification task.
+Increasing ntree from 100 to 200 (model_v02) did not meaningfully improve performance on validation cohort 1. While the AUC score improved substantially from 0.714 to 0.901, the confusion matrix reveals critical limitations: the model detected only 4 ABC samples (sensitivity = 1.6%) while classifying nearly all samples as GCB (specificity = 100%). The OOB error rate of 68.4% on the training data further indicates poor overall performance. Although the improved AUC suggests some discriminating capacity, the model's inability to detect ABC samples makes it clinically impractical for this classification task.
 
-To check why the optimal model failed to predict ABC samples completely in Cohort 1, I want to check the range of expression values of two cohorts to see if they are very different.
+Heatmap to visualise gene expression across two cohorts
+
+
+```{r}
+# Heatmap for Cohort 2
+colour <- 
+    list(COO = c("ABC" = "tan1", GCB = "cadetblue2"))
+
+pheatmap::pheatmap(
+    exprs(cohort_2[top200genes,]),  
+    scale="row", 
+    col = colorRampPalette(c("navy", "white", "firebrick3"))(1024),
+    annotation_col = select(pData(cohort_2), COO),  
+    annotation_colors  = colour,
+    show_colnames = FALSE)
+```
+
+```{r}
+# Heatmap for Cohort 1 (Validation)
+colour <- 
+    list(COO = c("ABC" = "tan1", GCB = "cadetblue2"))
+
+pheatmap::pheatmap(
+    exprs(cohort_1[top200genes,]),  
+    scale="row", 
+    col = colorRampPalette(c("navy", "white", "firebrick3"))(1024),
+    annotation_col = select(pData(cohort_1), COO),  
+    annotation_colors  = colour,
+    show_colnames = FALSE)
+```
+
+# Interpretation of heatmaps
+Cohort 2 shows clear separation of ABC and GCB as indicated by 2 distinct clusters. This suggests that these 200 genes could discriminate between two classes.
+
+Cohort 1 validation heatmap shows no clear ABC vs GCB separation as the annotated at top where ABC = orange and GCB = blue don't cluser into distinct groups. The heatmap is mostly white indicating these 200 genes have similar expression across samples.
+
+The heatmaps show that the my models (orignial or model_v02) failure on Cohort 1 is not dur to poor modelling design, instead it is pointing to the data problem. This is because my models learned expression patterns in Cohort 2 where these 200 genes were able to separate ABC and GCB, however, these patterns do not exist in Cohort 1 resulting the model's failure to classifying on validation data. Therefore, the most likely root cause would lie within the actual expression data in both cohorts, which I have mentioned in previously in question 4.
+
+To check why the optimal models failed to predict ABC samples completely in Cohort 1, I want to check the range of expression values of two cohorts to see if they are very different.
 ```{r}
 # Check expression values of cohort 2 training data
 summary(exprs(train_cohort2)[1:5,1:5])
@@ -759,6 +797,6 @@ summary(exprs(train_cohort2)[1:5,1:5])
 summary(exprs(cohort_1)[1:5,1:5])
 ```
 
-As shown in the summary table of expression values of both cohorts, it is clear that the min-max values for cohort 2 training set were between 2 - 10, whereas the min-max values for cohort 1 were between 8 - 15. This could be the reason why the model learned from cohort 2 was inappropriate for cohort 1 data. To overcome this, data normalisation before prediction would likely to improve the performance.
+As shown in the summary table of expression values of both cohorts, it is clear that the min-max values for cohort 2 training set were between 2 - 10, whereas the min-max values for cohort 1 were between 8 - 15. This could be the reason why the model learned from cohort 2 was inappropriate for cohort 1 data, even I have further increased ntree to 200. To overcome this, data normalisation before prediction would likely to improve the performance.
 
 
