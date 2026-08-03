@@ -1,4 +1,4 @@
-# CAN7035 / CAN7135 — Machine Learning and AI 
+# Machine Learning and AI 
 in Biomedical Research
 
 **MSc Cancer Genomics and Data Science**
